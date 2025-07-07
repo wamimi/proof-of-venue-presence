@@ -389,6 +389,9 @@ proof_timestamp = "${formData.proofTimestamp}"`;
 
         // Generate proof using backend API
         async function generateProofViaAPI(formData) {
+            console.log('Making API request to:', window.location.origin + '/api/generate-proof');
+            console.log('Request data:', formData);
+            
             const response = await fetch('/api/generate-proof', {
                 method: 'POST',
                 headers: {
@@ -397,12 +400,33 @@ proof_timestamp = "${formData.proofTimestamp}"`;
                 body: JSON.stringify(formData)
             });
             
+            console.log('Response status:', response.status);
+            console.log('Response headers:', [...response.headers.entries()]);
+            
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to generate proof');
+                // Try to get the response text first to see what we're actually receiving
+                const responseText = await response.text();
+                console.error('API Error Response:', responseText);
+                
+                // Try to parse as JSON if possible
+                try {
+                    const errorData = JSON.parse(responseText);
+                    throw new Error(errorData.error || 'Failed to generate proof');
+                } catch (jsonError) {
+                    // If it's not JSON, throw an error with the actual response
+                    throw new Error(`Server returned non-JSON response (${response.status}): ${responseText.substring(0, 200)}...`);
+                }
             }
             
-            return await response.json();
+            // Try to parse the successful response
+            const responseText = await response.text();
+            try {
+                return JSON.parse(responseText);
+            } catch (jsonError) {
+                console.error('JSON Parse Error:', jsonError);
+                console.error('Response Text:', responseText);
+                throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 200)}...`);
+            }
         }
 
         // Hash function (simplified)
