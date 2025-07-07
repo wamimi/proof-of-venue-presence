@@ -250,17 +250,17 @@
                     <div class="input-group">
                         <label for="timeWindowStart">Start Time (Unix Timestamp)</label>
                         <input type="text" id="timeWindowStart" required>
-                        <div class="help-text">Conference started 2 hours ago (auto-filled with current time)</div>
+                        <div class="help-text">Conference started 2 hours ago (East African Time - GMT+3)</div>
                     </div>
                     <div class="input-group">
                         <label for="timeWindowEnd">End Time (Unix Timestamp)</label>
                         <input type="text" id="timeWindowEnd" required>
-                        <div class="help-text">Conference ends in 1 hour (auto-filled with current time)</div>
+                        <div class="help-text">Conference ends in 1 hour (East African Time - GMT+3)</div>
                     </div>
                     <div class="input-group">
                         <label for="proofTimestamp">Proof Timestamp (Unix Timestamp)</label>
                         <input type="text" id="proofTimestamp" required>
-                        <div class="help-text">You generated proof 30 minutes ago (auto-filled with current time)</div>
+                        <div class="help-text">You generated proof 30 minutes ago (East African Time - GMT+3)</div>
                     </div>
                 </div>
 
@@ -337,7 +337,7 @@ Verification Time: ~10ms</div>
             event.target.classList.add('active');
         }
 
-        // Initialize realistic timestamps for current demo
+        // Initialize realistic timestamps for current demo (East African Time - GMT+3)
         function initializeTimestamp() {
             const now = Math.floor(Date.now() / 1000);
             
@@ -351,13 +351,26 @@ Verification Time: ~10ms</div>
             document.getElementById('timeWindowEnd').value = conferenceEnd;
             document.getElementById('proofTimestamp').value = proofTime;
             
-            // Update display with human-readable times
+            // Update display with human-readable times in East African Time
+            const timeZone = 'Africa/Nairobi'; // East African Time (GMT+3)
+            const options = { 
+                timeZone: timeZone,
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit',
+                second: '2-digit',
+                timeZoneName: 'short'
+            };
+            
             const startDate = new Date(conferenceStart * 1000);
             const endDate = new Date(conferenceEnd * 1000);
             const proofDate = new Date(proofTime * 1000);
             
-            console.log('Conference Window:', startDate.toLocaleString(), 'to', endDate.toLocaleString());
-            console.log('Proof Generated:', proofDate.toLocaleString());
+            console.log('🌍 East African Time (GMT+3):');
+            console.log('Conference Window:', startDate.toLocaleString('en-US', options), 'to', endDate.toLocaleString('en-US', options));
+            console.log('Proof Generated:', proofDate.toLocaleString('en-US', options));
         }
 
         // Generate Prover.toml content

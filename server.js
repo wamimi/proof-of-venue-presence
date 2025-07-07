@@ -4,6 +4,9 @@ const fs = require('fs-extra');
 const { exec } = require('child_process');
 const path = require('path');
 
+// Set timezone to East African Time (GMT+3)
+process.env.TZ = 'Africa/Nairobi';
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
