@@ -42,8 +42,8 @@ Generate cryptographic proofs that you were at a specific venue without revealin
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
-cd wifiproof
+git clone https://github.com/wamimi/proof-of-venue-presence
+cd proof-of-venue-presence
 
 # Install dependencies
 pnpm install
@@ -56,17 +56,19 @@ pnpm dev
 
 ### Test with Dummy Data
 
-The demo comes pre-loaded with test data. You can also manually test with these values:
+The demo comes pre-loaded with realistic test data using **current timestamps**. When you load the page, it auto-fills with:
 
 ```
 User Secret: 12345
 Connection Nonce: 99999
 Venue ID: 67890
 Network SSID Hash: 111222333444555
-Time Window Start: 1640995200 (Jan 1, 2022 00:00:00 UTC)
-Time Window End: 1640998800 (Jan 1, 2022 01:00:00 UTC)
-Proof Timestamp: 1640997000 (Jan 1, 2022 00:26:40 UTC)
+Time Window Start: [2 hours ago] (auto-filled with current time)
+Time Window End: [1 hour from now] (auto-filled with current time)  
+Proof Timestamp: [30 minutes ago] (auto-filled with current time)
 ```
+
+This creates a realistic scenario where you're proving you were at a conference that started 2 hours ago, ends in 1 hour, and you generated the proof 30 minutes ago.
 
 ### What Happens
 

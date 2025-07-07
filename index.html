@@ -249,18 +249,18 @@
                     <h3>⏰ Time Window</h3>
                     <div class="input-group">
                         <label for="timeWindowStart">Start Time (Unix Timestamp)</label>
-                        <input type="text" id="timeWindowStart" value="1640995200" required>
-                        <div class="help-text">When the valid time window begins</div>
+                        <input type="text" id="timeWindowStart" required>
+                        <div class="help-text">Conference started 2 hours ago (auto-filled with current time)</div>
                     </div>
                     <div class="input-group">
                         <label for="timeWindowEnd">End Time (Unix Timestamp)</label>
-                        <input type="text" id="timeWindowEnd" value="1640998800" required>
-                        <div class="help-text">When the valid time window ends</div>
+                        <input type="text" id="timeWindowEnd" required>
+                        <div class="help-text">Conference ends in 1 hour (auto-filled with current time)</div>
                     </div>
                     <div class="input-group">
                         <label for="proofTimestamp">Proof Timestamp (Unix Timestamp)</label>
                         <input type="text" id="proofTimestamp" required>
-                        <div class="help-text">When you're generating this proof (auto-filled)</div>
+                        <div class="help-text">You generated proof 30 minutes ago (auto-filled with current time)</div>
                     </div>
                 </div>
 
@@ -337,10 +337,27 @@ Verification Time: ~10ms</div>
             event.target.classList.add('active');
         }
 
-        // Initialize timestamp
+        // Initialize realistic timestamps for current demo
         function initializeTimestamp() {
             const now = Math.floor(Date.now() / 1000);
-            document.getElementById('proofTimestamp').value = now;
+            
+            // Set a conference that started 2 hours ago and ends in 1 hour
+            const conferenceStart = now - (2 * 60 * 60); // 2 hours ago
+            const conferenceEnd = now + (1 * 60 * 60);   // 1 hour from now
+            const proofTime = now - (30 * 60);           // 30 minutes ago (inside window)
+            
+            // Auto-fill all timestamp fields with realistic values
+            document.getElementById('timeWindowStart').value = conferenceStart;
+            document.getElementById('timeWindowEnd').value = conferenceEnd;
+            document.getElementById('proofTimestamp').value = proofTime;
+            
+            // Update display with human-readable times
+            const startDate = new Date(conferenceStart * 1000);
+            const endDate = new Date(conferenceEnd * 1000);
+            const proofDate = new Date(proofTime * 1000);
+            
+            console.log('Conference Window:', startDate.toLocaleString(), 'to', endDate.toLocaleString());
+            console.log('Proof Generated:', proofDate.toLocaleString());
         }
 
         // Generate Prover.toml content
@@ -375,7 +392,7 @@ proof_timestamp = "${formData.proofTimestamp}"`;
             return await response.json();
         }
 
-        // Hash function (simplified for demo)
+        // Hash function (simplified)
         async function hashData(data) {
             const encoder = new TextEncoder();
             const dataBuffer = encoder.encode(data);
