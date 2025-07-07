@@ -502,6 +502,7 @@ proof_timestamp = "${formData.proofTimestamp}"`;
                     
                     <h5>🔥 Barretenberg Cryptographic Proof:</h5>
                     <div class="code-block">Real ZK Proof Generated: ${result.proofGenerated ? '✅ YES' : '❌ NO'}
+${window.location.hostname !== 'localhost' ? '\n⚠️ Production Mode: Simulated proof (full Noir compilation requires local environment)' : ''}
 
 Proof Data: ${result.proofData}
 Public Inputs: ${result.publicInputs}
