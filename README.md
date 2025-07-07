@@ -20,6 +20,64 @@ Generate cryptographic proofs that you were at a specific venue without revealin
 
 > **Note**: V1 uses dummy test data for demonstration. V2 will integrate with real WiFi data sources and venue attestation systems.
 
+## 🎯 System Assumptions & Current Implementation Status
+
+### ✅ What's Currently Working (V1 Demo)
+- **Zero-Knowledge Circuit**: Fully functional 36 ACIR opcodes Noir circuit with real cryptographic proof generation
+- **Barretenberg Integration**: Complete Ultra Honk proof system (6073 constraints) with bb CLI commands
+- **Local Development**: Full Noir compilation, witness generation, and cryptographic proving on localhost
+- **Frontend Interface**: Complete web UI with form validation, proof generation, and verification
+- **East African Time Support**: Timezone-aware timestamp handling (GMT+3)
+- **Production Deployment**: Vercel serverless functions with simulated proofs for browser compatibility
+
+### 🔧 Technology Stack Used
+- **ZK Framework**: Noir v1.0.0-beta.6 with Barretenberg proving backend
+- **Circuit**: Custom venue presence proof with nullifier system
+- **Backend**: Express.js (localhost) + Vercel serverless functions (production)
+- **Frontend**: Vanilla HTML/CSS/JavaScript with modern responsive design
+- **Package Manager**: pnpm for dependency management
+- **Deployment**: Vercel with GitHub integration
+
+### ⚠️ Current Limitations & Assumptions
+1. **Venue Authentication**: Uses simplified hash-based signatures (not real EdDSA/ECDSA)
+2. **Network Validation**: Basic SSID hash check (not actual WiFi network verification)
+3. **Device Binding**: Simple user secret (not hardware-based attestation)
+4. **Production Proofs**: Simulated in serverless environment (real proofs require local Noir installation)
+5. **Time Windows**: Hardcoded conference scenarios (not dynamic venue scheduling)
+6. **QR Code System**: Not yet implemented (planned for next phase)
+
+### 📋 Next Implementation Steps
+
+#### Phase 1: Enhanced Security (Immediate)
+- [ ] Implement proper EdDSA signature verification in circuit
+- [ ] Add hardware-based device attestation
+- [ ] Create secure venue onboarding system with real cryptographic keys
+- [ ] Add proper network proximity verification
+
+#### Phase 2: QR Code Integration
+- [ ] Build venue QR code generator tool for conference/venue operators
+- [ ] Add QR scanner functionality to frontend for easy venue attestation
+- [ ] Implement venue signature verification from QR codes
+- [ ] Create venue management dashboard
+
+#### Phase 3: Production Infrastructure
+- [ ] Deploy Noir compilation to cloud environment for real production proofs
+- [ ] Add proof verification API for third-party integrators
+- [ ] Implement proof storage and retrieval system
+- [ ] Add batch verification capabilities
+
+#### Phase 4: Real-World Deployment
+- [ ] Conduct pilot with actual venues (coffee shops, conferences, offices)
+- [ ] Add mobile app support with NoirJS integration
+- [ ] Implement venue analytics and reporting
+- [ ] Add support for multiple venue networks and roaming
+
+#### Phase 5: Scale & Ecosystem
+- [ ] Deploy to GitHub Pages for public access
+- [ ] Create developer documentation and APIs
+- [ ] Add venue reputation and trust scoring
+- [ ] Implement cross-venue proof aggregation
+
 ## Quick Start
 
 ### Prerequisites
