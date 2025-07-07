@@ -584,10 +584,24 @@ Timestamp: ${result.timestamp}</div>
                         
                         if (result.success && result.verified) {
                             statusDiv.className = 'status success';
+                            // Convert timestamp to East African Time (GMT+3)
+                            const formatToEAT = (timestamp) => {
+                                const date = timestamp ? new Date(timestamp) : new Date();
+                                return date.toLocaleString('en-US', {
+                                    timeZone: 'Africa/Nairobi',
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: false
+                                }) + ' EAT';
+                            };
                             statusDiv.innerHTML = `
                                 <strong>✅ Proof Verified Successfully!</strong><br>
                                 This proof is cryptographically valid and confirms venue presence.<br>
-                                Generated: ${proof.timestamp || new Date().toLocaleString()}<br>
+                                Generated: ${formatToEAT(proof.timestamp)}<br>
                                 Verification Output: ${result.verificationOutput || 'Proof verified by Noir'}
                             `;
                         } else {
