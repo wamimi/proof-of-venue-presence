@@ -389,10 +389,15 @@ proof_timestamp = "${formData.proofTimestamp}"`;
 
         // Generate proof using backend API
         async function generateProofViaAPI(formData) {
-            console.log('Making API request to:', window.location.origin + '/api/generate-proof');
+            // Always use localhost:3001 for the backend API
+            const apiUrl = window.location.hostname === 'localhost' ? 
+                          '/api/generate-proof' : 
+                          'http://localhost:3001/api/generate-proof';
+            
+            console.log('Making API request to:', apiUrl);
             console.log('Request data:', formData);
             
-            const response = await fetch('/api/generate-proof', {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -564,7 +569,10 @@ Timestamp: ${result.timestamp}</div>
                     const proof = JSON.parse(lastProof);
                     if (proof.proofHash === proofHash) {
                         // Call backend for actual verification
-                        const response = await fetch('/api/verify-proof', {
+                        const verifyUrl = window.location.hostname === 'localhost' ? 
+                                        '/api/verify-proof' : 
+                                        'http://localhost:3001/api/verify-proof';
+                        const response = await fetch(verifyUrl, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -591,7 +599,10 @@ Timestamp: ${result.timestamp}</div>
                 }
                 
                 // For unknown proofs, try to verify anyway
-                const response = await fetch('/api/verify-proof', {
+                const verifyUrl = window.location.hostname === 'localhost' ? 
+                                '/api/verify-proof' : 
+                                'http://localhost:3001/api/verify-proof';
+                const response = await fetch(verifyUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
