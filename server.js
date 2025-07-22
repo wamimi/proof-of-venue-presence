@@ -13,6 +13,25 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static('.', { 
+    exclude: ['node_modules', '.git', 'target']
+}));
+
+// Store generated proofs in memory (in production, use a database)
+const storedProofs = new Map();
+
+// CORS middleware
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    
+    if (req.method === 'OPTIONS') {
+        res.sendStatus(200);
+    } else {
+        next();
+    }
+});
 
 // Serve the frontend
 app.get('/', (req, res) => {
@@ -21,9 +40,19 @@ app.get('/', (req, res) => {
 
 // Generate proof endpoint
 app.post('/api/generate-proof', async (req, res) => {
-    console.log('📡 Received proof generation request:', req.body);
-    
+    console.log('📡 Received proof generation request');
+    const targetDir = path.join(__dirname, 'target');
+    const proofOutputDir = path.join(targetDir, 'proof_artifacts');
+    const vkOutputDir = path.join(targetDir, 'vk_artifacts');
+
     try {
+        // 1. Clean up and create directories for a fresh run
+        await fs.remove(targetDir);
+        await fs.ensureDir(targetDir);
+        await fs.ensureDir(proofOutputDir);
+        await fs.ensureDir(vkOutputDir);
+        console.log('✅ Cleaned and prepared target directories');
+
         const {
             userSecret,
             connectionNonce,
@@ -34,85 +63,53 @@ app.post('/api/generate-proof', async (req, res) => {
             proofTimestamp
         } = req.body;
 
-        // Validate inputs
-        if (!userSecret || !connectionNonce || !venueId || !networkSsidHash || 
-            !timeWindowStart || !timeWindowEnd || !proofTimestamp) {
-            return res.status(400).json({
-                success: false,
-                error: 'Missing required fields'
-            });
-        }
-
-        // Validate time window
-        const startTime = parseInt(timeWindowStart);
-        const endTime = parseInt(timeWindowEnd);
-        const proofTime = parseInt(proofTimestamp);
-        
-        if (proofTime < startTime || proofTime > endTime) {
-            return res.status(400).json({
-                success: false,
-                error: 'Proof timestamp must be within the valid time window'
-            });
-        }
-
-        // Generate Prover.toml content
-        const proverTomlContent = `# WiFi Connection Proof - Generated from API
-# Timestamp: ${new Date().toISOString()}
-
+        // Create separate Prover.toml for private inputs and Verifier.toml for public inputs
+        const privateProverToml = `
 user_secret = "${userSecret}"
 connection_nonce = "${connectionNonce}"
 venue_id = "${venueId}"
 network_ssid_hash = "${networkSsidHash}"
 time_window_start = "${timeWindowStart}"
 time_window_end = "${timeWindowEnd}"
-proof_timestamp = "${proofTimestamp}"`;
+proof_timestamp = "${proofTimestamp}"
+`.trim();
 
-        // Write Prover.toml
-        await fs.writeFile('Prover.toml', proverTomlContent);
+        const publicVerifierToml = `
+venue_id = "${venueId}"
+network_ssid_hash = "${networkSsidHash}"
+time_window_start = "${timeWindowStart}"
+time_window_end = "${timeWindowEnd}"
+proof_timestamp = "${proofTimestamp}"
+`.trim();
+
+        await fs.writeFile('Prover.toml', privateProverToml);
         console.log('✅ Generated Prover.toml');
 
-        // Step 1: Compile circuit to JSON format for Barretenberg
-        const compileResult = await execNoirCommand('nargo compile');
-        console.log('✅ Noir compilation completed');
-
-        // Step 2: Execute circuit to generate witness
+        // Step 2: Compile and Execute Noir circuit
+        await execNoirCommand('nargo compile');
         const executeResult = await execNoirCommand('nargo execute');
-        console.log('✅ Noir execution completed');
 
-        // Step 3: Generate proof using Barretenberg bb CLI
-        const proveResult = await execNoirCommand('bb prove -b ./target/wifiproof.json -w ./target/wifiproof.gz -o ./target');
-        console.log('✅ Barretenberg proof generated');
+        // Step 3: Generate cryptographic proof and VK with Barretenberg
+        await execNoirCommand(`bb prove -b ${targetDir}/wifiproof.json -w ${targetDir}/wifiproof.gz -o ${proofOutputDir}`);
+        await execNoirCommand(`bb write_vk -b ${targetDir}/wifiproof.json -o ${vkOutputDir}`);
 
-        // Step 4: Generate verification key
-        const vkResult = await execNoirCommand('bb write_vk -b ./target/wifiproof.json -o ./target');
-        console.log('✅ Verification key generated');
+        console.log('✅ Barretenberg proof and VK generation commands executed');
+        
+        // 4. Read all three essential artifacts: proof, vk, and the generated public_inputs
+        const proofPath = path.join(proofOutputDir, 'proof');
+        const publicInputsPath = path.join(proofOutputDir, 'public_inputs');
+        const vkPath = path.join(vkOutputDir, 'vk');
 
-        // Read the Barretenberg proof output
-        let proofData, publicInputsData, vkData;
-        try {
-            const proofFile = path.join(__dirname, 'target', 'proof');
-            const publicInputsFile = path.join(__dirname, 'target', 'public_inputs');
-            const vkFile = path.join(__dirname, 'target', 'vk');
-            
-            if (await fs.pathExists(proofFile)) {
-                proofData = await fs.readFile(proofFile, 'hex');
-                console.log('✅ Read Barretenberg proof file');
-            }
-            
-            if (await fs.pathExists(publicInputsFile)) {
-                publicInputsData = await fs.readFile(publicInputsFile, 'hex');
-                console.log('✅ Read public inputs file');
-            }
-            
-            if (await fs.pathExists(vkFile)) {
-                vkData = await fs.readFile(vkFile, 'hex');
-                console.log('✅ Read verification key file');
-            }
-        } catch (error) {
-            console.warn('⚠️ Could not read Barretenberg files:', error.message);
+        if (!await fs.pathExists(proofPath) || !await fs.pathExists(vkPath) || !await fs.pathExists(publicInputsPath)) {
+            throw new Error('Barretenberg failed to generate all required proof artifacts (proof, vk, public_inputs).');
         }
 
-        // Parse execution output to get the public outputs
+        const proofData = await fs.readFile(proofPath, 'hex');
+        const vkData = await fs.readFile(vkPath, 'hex');
+        const publicInputsData = await fs.readFile(publicInputsPath, 'hex'); // Read as hex
+        console.log('✅ Read proof, VK, and public_inputs files successfully');
+        
+        // Parse execution output to get the public outputs from the circuit
         const publicOutputs = parseExecutionOutput(executeResult);
 
         // Generate response
@@ -130,24 +127,33 @@ proof_timestamp = "${proofTimestamp}"`;
                 network_hash: networkSsidHash,
                 proof_timestamp: proofTimestamp
             },
-            proverToml: proverTomlContent,
+            proverToml: publicVerifierToml,
             executionOutput: executeResult,
-            compileOutput: compileResult,
-            proofGenerated: !!proofData, // Successfully generated cryptographic proof
+            compileOutput: 'Compilation successful',
+            proofGenerated: !!proofData,
             proofData: proofData ? `0x${proofData.substring(0, 100)}...` : 'Proof generation failed',
-            publicInputs: publicInputsData ? `0x${publicInputsData}` : 'No public inputs',
+            publicInputs: publicInputsData ? `0x${publicInputsData.substring(0,100)}...` : 'No public inputs generated',
             verificationKey: vkData ? `VK generated (${vkData.length/2} bytes)` : 'VK generation failed',
             timestamp: new Date().toISOString()
         };
 
-        console.log('🎉 Proof generation successful!');
+        // Store all three proof artifacts for verification
+        storedProofs.set(proofHash, {
+            proofData,
+            vkData,
+            publicInputsData, // Store the hex string of the generated public inputs
+            timestamp: response.timestamp,
+        });
+        console.log(`✅ Stored proof data for hash: ${proofHash}`);
+        
         res.json(response);
 
     } catch (error) {
         console.error('❌ Error generating proof:', error);
         res.status(500).json({
             success: false,
-            error: error.message
+            error: `Proof generation failed: ${error.message}`,
+            details: error.stdout ? `${error.stdout}\n${error.stderr}` : 'No details available.'
         });
     }
 });
@@ -166,21 +172,53 @@ app.post('/api/verify-proof', async (req, res) => {
             });
         }
 
-        // Use Barretenberg bb CLI for real proof verification
-        try {
-            const verifyResult = await execNoirCommand('bb verify -k ./target/vk -p ./target/proof -i ./target/public_inputs');
-            
-            res.json({
-                success: true,
-                verified: !verifyResult.toLowerCase().includes('error') && !verifyResult.toLowerCase().includes('failed'),
-                verificationOutput: verifyResult || 'Proof verified successfully by Barretenberg',
+        const storedProof = storedProofs.get(proofHash);
+        
+        if (!storedProof) {
+            return res.json({
+                success: false,
+                verified: false,
+                error: 'Proof not found. This proof hash does not correspond to any generated proof.',
                 timestamp: new Date().toISOString()
             });
-        } catch (error) {
+        }
+
+        console.log(`🔍 Verifying stored proof: ${proofHash}`);
+
+        // Write the stored proof files temporarily for verification
+        const tempDir = path.join(__dirname, 'temp_verification');
+        await fs.ensureDir(tempDir);
+        const tempProofFile = path.join(tempDir, 'proof');
+        const tempVkFile = path.join(tempDir, 'vk');
+        const tempPublicInputsFile = path.join(tempDir, 'public_inputs');
+
+        try {
+            await fs.writeFile(tempProofFile, Buffer.from(storedProof.proofData, 'hex'));
+            await fs.writeFile(tempVkFile, Buffer.from(storedProof.vkData, 'hex'));
+            await fs.writeFile(tempPublicInputsFile, Buffer.from(storedProof.publicInputsData, 'hex'));
+
+            // Use Barretenberg bb CLI with the correct flags for all three artifacts
+            const verifyResult = await execNoirCommand(`bb verify -k ${tempVkFile} -p ${tempProofFile} -i ${tempPublicInputsFile}`);
+            
+            await fs.remove(tempDir);
+
+            const isVerified = verifyResult.toLowerCase().includes('proof verified successfully');
+
+            res.json({
+                success: true,
+                verified: isVerified,
+                verificationOutput: verifyResult,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (verifyError) {
+            await fs.remove(tempDir);
+
             res.json({
                 success: false,
                 verified: false,
-                verificationOutput: `Verification failed: ${error.message}`,
+                error: `Verification command failed: ${verifyError.message}`,
+                details: verifyError.stdout ? `${verifyError.stdout}\n${verifyError.stderr}` : 'No details available.',
                 timestamp: new Date().toISOString()
             });
         }
@@ -210,7 +248,9 @@ function execNoirCommand(command) {
         console.log(`⚡ Executing: ${command}`);
         exec(command, { cwd: __dirname }, (error, stdout, stderr) => {
             if (error) {
-                console.error(`Error executing ${command}:`, error);
+                console.error(`Error executing ${command}:`, stderr || stdout);
+                error.stdout = stdout;
+                error.stderr = stderr;
                 reject(error);
                 return;
             }

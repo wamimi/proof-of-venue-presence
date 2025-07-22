@@ -496,7 +496,7 @@ proof_timestamp = "${formData.proofTimestamp}"`;
                 outputDiv.innerHTML = `
                     <h4>🎉 Zero-Knowledge Proof Generated!</h4>
                     
-                    <h5>Generated Prover.toml:</h5>
+                    <h5>Generated Public Inputs (Verifier.toml):</h5>
                     <div class="code-block">${result.proverToml}</div>
                     
                     <h5>Noir Compilation Output:</h5>
@@ -628,13 +628,10 @@ Timestamp: ${result.timestamp}</div>
                 
                 if (result.success && result.verified) {
                     statusDiv.className = 'status success';
-                    statusDiv.textContent = '✅ Proof verified successfully by Noir backend!';
-                } else if (proofHash.startsWith('0x') && proofHash.length >= 20) {
-                    statusDiv.className = 'status success';
-                    statusDiv.textContent = '✅ Proof format is valid! (Backend verification may require matching proof file)';
+                    statusDiv.textContent = '✅ Proof verified successfully by Barretenberg backend!';
                 } else {
                     statusDiv.className = 'status error';
-                    statusDiv.textContent = '❌ Invalid proof format';
+                    statusDiv.textContent = `❌ Proof verification failed: ${result.error || 'This proof hash does not correspond to any generated proof.'}`;
                 }
                 
             } catch (error) {
