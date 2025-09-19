@@ -1,7 +1,8 @@
 # Noir Circuit Build Artifacts
 target/
 *.gz
-*.json
+proof-submission/noir-vkey.json
+
 vk
 proof
 public_inputs

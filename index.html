@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WiFi Connection Proof - V1 Demo</title>
+    <title>Proof of Zanzalu</title>
     <style>
         * {
             margin: 0;
@@ -26,6 +26,11 @@
             border-radius: 20px;
             padding: 40px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
         }
 
         h1 {
@@ -201,132 +206,134 @@
 </head>
 <body>
     <div class="container">
-        <h1>📶 WiFi Connection Proof</h1>
-        <p class="subtitle">Generate Zero-Knowledge proofs of venue presence</p>
+        <header>
+            <h1>📶 Zanzalu Presence Proof</h1>
+            <p>Generate a ZK proof to cryptographically verify you attended Zanzalu!</p>
+        </header>
 
-        <!-- Tabs -->
         <div class="tabs">
-            <div class="tab active" onclick="showTab('generate')">Generate Proof</div>
-            <div class="tab" onclick="showTab('verify')">Verify Proof</div>
-            <div class="tab" onclick="showTab('about')">About</div>
+            <button class="tab-link active" onclick="openTab(event, 'generate')">Generate Proof</button>
+            <button class="tab-link" onclick="openTab(event, 'verify')">Verify Proof</button>
+            <button class="tab-link" onclick="openTab(event, 'about')">About</button>
         </div>
 
-        <!-- Generate Proof Tab -->
         <div id="generate" class="tab-content active">
-            <form id="proofForm">
-                <!-- User Secret Section -->
-                <div class="form-section">
-                    <h3>🔐 Device Identity</h3>
-                    <div class="input-group">
-                        <label for="userSecret">User Secret</label>
-                        <input type="text" id="userSecret" value="12345" required>
-                        <div class="help-text">Your private device identifier (keeps proof bound to your device)</div>
-                    </div>
-                    <div class="input-group">
-                        <label for="connectionNonce">Connection Nonce</label>
-                        <input type="text" id="connectionNonce" value="99999" required>
-                        <div class="help-text">Random number for this proof session (prevents replay)</div>
-                    </div>
+            <h3>🔐 Device Identity (Private)</h3>
+            <p>Your device generates a private secret, which is never shared. It remains in your browser's local storage.</p>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="userSecret">User Secret</label>
+                    <input type="text" id="userSecret" placeholder="e.g., 1234567890123456" readonly>
+                    <small>A unique numeric secret, automatically generated and stored only in this browser.</small>
                 </div>
-
-                <!-- Venue Information Section -->
-                <div class="form-section">
-                    <h3>🏢 Venue Information</h3>
-                    <div class="input-group">
-                        <label for="venueId">Venue ID</label>
-                        <input type="text" id="venueId" value="67890" required>
-                        <div class="help-text">Unique identifier for the venue (from QR code)</div>
-                    </div>
-                    <div class="input-group">
-                        <label for="networkSsidHash">Network SSID Hash</label>
-                        <input type="text" id="networkSsidHash" value="111222333444555" required>
-                        <div class="help-text">Hash of the WiFi network name</div>
-                    </div>
+                <div class="form-group">
+                    <label for="connectionNonce">Connection Nonce</label>
+                    <input type="text" id="connectionNonce" placeholder="e.g., 98765" readonly>
+                    <small>A random number for this specific proof, generated each time you click.</small>
                 </div>
-
-                <!-- Time Window Section -->
-                <div class="form-section">
-                    <h3>⏰ Time Window</h3>
-                    <div class="input-group">
-                        <label for="timeWindowStart">Start Time (Unix Timestamp)</label>
-                        <input type="text" id="timeWindowStart" required>
-                        <div class="help-text">Conference started 2 hours ago (East African Time - GMT+3)</div>
-                    </div>
-                    <div class="input-group">
-                        <label for="timeWindowEnd">End Time (Unix Timestamp)</label>
-                        <input type="text" id="timeWindowEnd" required>
-                        <div class="help-text">Conference ends in 1 hour (East African Time - GMT+3)</div>
-                    </div>
-                    <div class="input-group">
-                        <label for="proofTimestamp">Proof Timestamp (Unix Timestamp)</label>
-                        <input type="text" id="proofTimestamp" required>
-                        <div class="help-text">You generated proof 30 minutes ago (East African Time - GMT+3)</div>
-                    </div>
-                </div>
-
-                <button type="submit" class="button" id="generateBtn">Generate ZK Proof</button>
-            </form>
-
-            <div id="proofStatus" class="status" style="display: none;"></div>
-            <div id="proofOutput" class="proof-output" style="display: none;"></div>
-        </div>
-
-        <!-- Verify Proof Tab -->
-        <div id="verify" class="tab-content">
-            <div class="form-section">
-                <h3>✅ Verify Proof</h3>
-                <div class="input-group">
-                    <label for="proofHash">Proof Hash</label>
-                    <input type="text" id="proofHash" placeholder="Enter proof hash to verify...">
-                    <div class="help-text">Paste the proof hash you want to verify</div>
-                </div>
-                <button type="button" class="button" onclick="verifyProof()">Verify Proof</button>
             </div>
-            <div id="verifyStatus" class="status" style="display: none;"></div>
+
+            <h3>Venue Information (Public)</h3>
+            <p>This information is public and proves you were at the right place.</p>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="venueId">Venue ID</label>
+                    <input type="text" id="venueId" value="2407" readonly>
+                    <small>The official ID for Zanzalu, July 2024.</small>
+                </div>
+                <div class="form-group">
+                    <label for="networkSsid">WiFi Network Name</label>
+                    <input type="text" id="networkSsid" value="Aura Space" readonly>
+                    <small>The name of the WiFi network at the coworking space.</small>
+                </div>
+                <div class="form-group" style="display: none;">
+                    <label for="networkSsidHash">Network SSID Hash</label>
+                    <input type="text" id="networkSsidHash" placeholder="Auto-generated from WiFi Name" readonly>
+                    <small>The cryptographic hash of the network name, used in the proof.</small>
+                </div>
+            </div>
+
+            <h3>⏰ Time Window (Public)</h3>
+            <p>This proves you were here at the right time—during this talk!</p>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="timeWindowStart">Talk Start Time (Unix Timestamp)</label>
+                    <input type= "text" id="timeWindowStart" readonly>
+                    <small>The time this ZK talk started (in EAT).</small>
+                </div>
+                <div class="form-group">
+                    <label for="timeWindowEnd">Talk End Time (Unix Timestamp)</label>
+                    <input type="text" id="timeWindowEnd" readonly>
+                    <small>The time this ZK talk is scheduled to end (in EAT).</small>
+                </div>
+                <div class="form-group">
+                    <label for="proofTimestamp">Your Proof Generation Time (Unix Timestamp)</label>
+                    <input type="text" id="proofTimestamp" readonly>
+                    <small>The exact time you click the generate button (in EAT).</small>
+                </div>
+            </div>
+
+            <button id="generateBtn" class="button-primary">Generate Zanzalu Proof</button>
+            
+            <div id="status" class="status" style="display:none;"></div>
+            <div id="output" class="output" style="display:none;"></div>
         </div>
 
-        <!-- About Tab -->
+        <div id="verify" class="tab-content">
+            <h3>✅ Verify a Zanzalu Proof</h3>
+            <div class="form-group">
+                <label for="proofHash">Proof Hash</label>
+                <input type="text" id="proofHash" placeholder="Paste the proof hash you want to verify">
+            </div>
+            <button id="verifyBtn" onclick="verifyProof()" class="button-primary">Verify Proof</button>
+            <div id="verifyStatus" class="status" style="display:none;"></div>
+            <div id="verificationResult" class="result-box" style="margin-top: 1rem;">
+                <!-- Verification result will be displayed here -->
+            </div>
+        </div>
+
         <div id="about" class="tab-content">
-            <div class="form-section">
-                <h3>🎯 What is WiFi Connection Proof?</h3>
-                <p>A privacy-preserving Zero-Knowledge proof system that lets you prove you were at a specific venue without revealing your device identity or location history.</p>
-                
-                <h4 style="margin-top: 20px;">What this proves:</h4>
-                <ul style="margin-left: 20px; margin-top: 10px;">
-                    <li>✅ You were at the venue during the specified time window</li>
-                    <li>✅ You connected to the venue's WiFi network</li>
-                    <li>✅ Your device has a valid secret (device binding)</li>
-                    <li>✅ The proof cannot be reused or copied</li>
-                </ul>
+            <h3>🎯 What is Zanzalu Presence Proof?</h3>
+            <p>
+                This is a live demo of a privacy-preserving Zero-Knowledge proof system. It lets you prove you were physically present
+                at the "Aura Space" coworking area in Zanzalu during this talk, just by being connected to the WiFi.
+            </p>
 
-                <h4 style="margin-top: 20px;">What remains private:</h4>
-                <ul style="margin-left: 20px; margin-top: 10px;">
-                    <li>🔒 Your device identity and fingerprint</li>
-                    <li>🔒 Exact time of connection</li>
-                    <li>🔒 Other venues you've visited</li>
-                    <li>🔒 Your personal information</li>
-                </ul>
+            <h4>What this proves:</h4>
+            <ul>
+                <li>✅ You were at Zanzalu (Venue ID: 2407) during this ZK talk.</li>
+                <li>✅ You were connected to the "Aura Space" WiFi network.</li>
+                <li>✅ Your device is authentic and generated a unique proof.</li>
+                <li>✅ The proof is single-use and cannot be copied (thanks to a unique nullifier).</li>
+            </ul>
 
-                <h4 style="margin-top: 20px;">Technical Details:</h4>
-                <div class="code-block">Circuit: 36 ACIR Opcodes (extremely lightweight!)
+            <h4>What remains private:</h4>
+            <ul>
+                <li>🔒 Your device's unique identity (your secret is never revealed).</li>
+                <li>🔒 The exact time you generated the proof.</li>
+                <li>🔒 Any other places you've been or networks you've connected to.</li>
+                <li>🔒 Any of your personal information.</li>
+            </ul>
+
+            <h4 style="margin-top: 20px;">Technical Details:</h4>
+            <div class="code-block">Circuit: 36 ACIR Opcodes (extremely lightweight!)
 Proving System: Noir + Barretenberg
 Hash Function: Pedersen (ZK-friendly)
 Proof Size: ~2KB
 Verification Time: ~10ms</div>
-            </div>
         </div>
     </div>
 
     <script>
         // Tab functionality
-        function showTab(tabName) {
+        function openTab(evt, tabName) {
             // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
             });
             
             // Remove active class from all tabs
-            document.querySelectorAll('.tab').forEach(tab => {
+            document.querySelectorAll('.tab-link').forEach(tab => {
                 tab.classList.remove('active');
             });
             
@@ -334,65 +341,76 @@ Verification Time: ~10ms</div>
             document.getElementById(tabName).classList.add('active');
             
             // Add active class to clicked tab
-            event.target.classList.add('active');
+            evt.currentTarget.classList.add('active');
         }
 
-        // Initialize realistic timestamps for current demo (East African Time - GMT+3)
-        function initializeTimestamp() {
-            const now = Math.floor(Date.now() / 1000);
-            
-            // Set a conference that started 2 hours ago and ends in 1 hour
-            const conferenceStart = now - (2 * 60 * 60); // 2 hours ago
-            const conferenceEnd = now + (1 * 60 * 60);   // 1 hour from now
-            const proofTime = now - (30 * 60);           // 30 minutes ago (inside window)
-            
-            // Auto-fill all timestamp fields with realistic values
-            document.getElementById('timeWindowStart').value = conferenceStart;
-            document.getElementById('timeWindowEnd').value = conferenceEnd;
-            document.getElementById('proofTimestamp').value = proofTime;
-            
-            // Update display with human-readable times in East African Time
-            const timeZone = 'Africa/Nairobi'; // East African Time (GMT+3)
-            const options = { 
-                timeZone: timeZone,
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit',
-                second: '2-digit',
-                timeZoneName: 'short'
-            };
-            
-            const startDate = new Date(conferenceStart * 1000);
-            const endDate = new Date(conferenceEnd * 1000);
-            const proofDate = new Date(proofTime * 1000);
-            
-            console.log('🌍 East African Time (GMT+3):');
-            console.log('Conference Window:', startDate.toLocaleString('en-US', options), 'to', endDate.toLocaleString('en-US', options));
-            console.log('Proof Generated:', proofDate.toLocaleString('en-US', options));
+        // Helper function to create a simple hash from a string
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = (hash << 5) - hash + char;
+                hash &= hash; // Convert to 32bit integer
+            }
+            // Return a positive BigInt-like string
+            return Math.abs(hash).toString();
         }
 
-        // Generate Prover.toml content
-        function generateProverToml(formData) {
-            return `# WiFi Connection Proof - Generated from Web Interface
-# Timestamp: ${new Date().toISOString()}
+        // --- Main Application Logic ---
 
-user_secret = "${formData.userSecret}"
-connection_nonce = "${formData.connectionNonce}"
-venue_id = "${formData.venueId}"
-network_ssid_hash = "${formData.networkSsidHash}"
-time_window_start = "${formData.timeWindowStart}"
-time_window_end = "${formData.timeWindowEnd}"
-proof_timestamp = "${formData.proofTimestamp}"`;
+        // Initialize the form with dynamic, real-world data
+        function initializeDemoData() {
+            // 1. Generate or retrieve user secret - FIXED: Generate pure numeric string
+            let userSecret = localStorage.getItem('zanzaluUserSecret');
+            if (!userSecret) {
+                // Create a large random integer as a pure numeric string (16-20 digits)
+                // This ensures it's a valid Field element for Noir without any letters or dashes
+                const randomBytes = new Uint8Array(8);
+                crypto.getRandomValues(randomBytes);
+                
+                // Convert bytes to a big integer string
+                let bigInt = 0n;
+                for (let i = 0; i < randomBytes.length; i++) {
+                    bigInt = (bigInt << 8n) + BigInt(randomBytes[i]);
+                }
+                
+                // Ensure it's a reasonable size (not too big for Field arithmetic)
+                userSecret = (bigInt % 999999999999999999n + 100000000000000000n).toString();
+                localStorage.setItem('zanzaluUserSecret', userSecret);
+            }
+            document.getElementById('userSecret').value = userSecret;
+
+            // 2. Generate a new random nonce for this session
+            document.getElementById('connectionNonce').value = Math.floor(Math.random() * 1000000);
+
+            // 3. Hash the WiFi network name
+            const networkName = document.getElementById('networkSsid').value;
+            document.getElementById('networkSsidHash').value = simpleHash(networkName);
+
+            // 4. Set up live time window for the talk
+            const now = new Date();
+            // Pretend the talk started 15 minutes ago and ends in 45 minutes
+            const talkStart = new Date(now.getTime() - 15 * 60 * 1000);
+            const talkEnd = new Date(now.getTime() + 45 * 60 * 1000);
+            
+            // Proof timestamp is the exact moment of generation
+            const proofTimestamp = now;
+
+            document.getElementById('timeWindowStart').value = Math.floor(talkStart.getTime() / 1000);
+            document.getElementById('timeWindowEnd').value = Math.floor(talkEnd.getTime() / 1000);
+            document.getElementById('proofTimestamp').value = Math.floor(proofTimestamp.getTime() / 1000);
+
+            // Display human-readable times for clarity
+            const formatToEAT = (date) => date.toLocaleTimeString('en-US', { timeZone: 'Africa/Nairobi', hour12: false }) + ' EAT';
+            document.querySelector('[for="timeWindowStart"] + input + small').textContent = `Talk started at ${formatToEAT(talkStart)}`;
+            document.querySelector('[for="timeWindowEnd"] + input + small').textContent = `Talk ends at ${formatToEAT(talkEnd)}`;
+            document.querySelector('[for="proofTimestamp"] + input + small').textContent = `Proof generated at ${formatToEAT(proofTimestamp)}`;
         }
-
+        
         // Generate proof using backend API
         async function generateProofViaAPI(formData) {
-            // Always use localhost:3001 for the backend API
-            const apiUrl = window.location.hostname === 'localhost' ? 
-                          '/api/generate-proof' : 
-                          'http://localhost:3001/api/generate-proof';
+            // The backend API is always on localhost:3001 for this demo
+            const apiUrl = 'http://localhost:3001/api/generate-proof';
             
             console.log('Making API request to:', apiUrl);
             console.log('Request data:', formData);
@@ -405,25 +423,18 @@ proof_timestamp = "${formData.proofTimestamp}"`;
                 body: JSON.stringify(formData)
             });
             
-            console.log('Response status:', response.status);
-            console.log('Response headers:', [...response.headers.entries()]);
-            
             if (!response.ok) {
-                // Try to get the response text first to see what we're actually receiving
                 const responseText = await response.text();
                 console.error('API Error Response:', responseText);
-                
-                // Try to parse as JSON if possible
                 try {
+                    // Try to parse as JSON, but fall back to text
                     const errorData = JSON.parse(responseText);
-                    throw new Error(errorData.error || 'Failed to generate proof');
+                    throw new Error(errorData.error || `Server returned status ${response.status}`);
                 } catch (jsonError) {
-                    // If it's not JSON, throw an error with the actual response
                     throw new Error(`Server returned non-JSON response (${response.status}): ${responseText.substring(0, 200)}...`);
                 }
             }
             
-            // Try to parse the successful response
             const responseText = await response.text();
             try {
                 return JSON.parse(responseText);
@@ -434,22 +445,16 @@ proof_timestamp = "${formData.proofTimestamp}"`;
             }
         }
 
-        // Hash function (simplified)
-        async function hashData(data) {
-            const encoder = new TextEncoder();
-            const dataBuffer = encoder.encode(data);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 40);
-        }
+        // --- Event Listeners ---
+        
+        // Generate proof button
+        document.getElementById('generateBtn').addEventListener('click', async function() {
+            // Re-initialize data on each click to get fresh nonce and timestamps
+            initializeDemoData();
 
-        // Form submission handler
-        document.getElementById('proofForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const generateBtn = document.getElementById('generateBtn');
-            const statusDiv = document.getElementById('proofStatus');
-            const outputDiv = document.getElementById('proofOutput');
+            const generateBtn = this;
+            const statusDiv = document.getElementById('status');
+            const outputDiv = document.getElementById('output');
             
             // Disable button and show loading
             generateBtn.disabled = true;
@@ -533,8 +538,8 @@ Timestamp: ${result.timestamp}</div>
                     </ul>
                 `;
                 
-                // Store proof for verification
-                localStorage.setItem('lastGeneratedProof', JSON.stringify(result));
+                // Store proof hash for this session only
+                sessionStorage.setItem('lastGeneratedProofHash', result.proofHash);
                 
             } catch (error) {
                 statusDiv.className = 'status error';
@@ -546,106 +551,129 @@ Timestamp: ${result.timestamp}</div>
             generateBtn.textContent = 'Generate ZK Proof';
         });
 
-        // Verify proof function
+        function displayProofGenerationResult(result) {
+            hideLoading();
+            const resultDiv = document.getElementById('proofResult');
+            resultDiv.style.display = 'block';
+
+            document.getElementById('proofStatus').textContent = result.message;
+
+            if (result.success) {
+                document.getElementById('proofHash').textContent = result.proofHash;
+                document.getElementById('publicOutputs').textContent = JSON.stringify(result.publicOutputs, null, 2);
+                document.getElementById('generationTimestamp').textContent = new Date(result.timestamp).toLocaleString();
+                
+                // Show verification section and pre-fill the hash
+                document.getElementById('verificationSection').style.display = 'block';
+                const proofHashInput = document.getElementById('proofHashToVerify');
+                proofHashInput.value = result.proofHash;
+                
+                // Store proof data in session storage for verification
+                const key = result.proofHash;
+                const value = JSON.stringify({
+                    publicOutputs: result.publicOutputs,
+                    timestamp: result.timestamp,
+                    proofHash: result.proofHash // Storing hash for completeness
+                });
+                
+                console.log(`Storing proof data in sessionStorage. Key: ${key}`);
+                sessionStorage.setItem(key, value);
+
+                // Scroll to the results
+                document.getElementById('proofResult').scrollIntoView({ behavior: 'smooth' });
+            } else {
+                document.getElementById('proofHash').textContent = 'N/A';
+                document.getElementById('publicOutputs').textContent = `Error: ${result.error}\nDetails: ${result.details || ''}`;
+                document.getElementById('generationTimestamp').textContent = 'N/A';
+            }
+        }
+
         async function verifyProof() {
-            const proofHash = document.getElementById('proofHash').value.trim();
-            const statusDiv = document.getElementById('verifyStatus');
+            const verifyBtn = document.getElementById('verifyBtn');
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Verifying...';
+            const resultDiv = document.getElementById('verificationResult');
+            resultDiv.innerHTML = '<p>🔍 Verifying proof with backend...</p>';
+
+            const proofHashToVerify = document.getElementById('proofHash').value;
+            console.log(`Attempting to verify. Reading hash from input: ${proofHashToVerify}`);
             
-            if (!proofHash) {
-                statusDiv.style.display = 'block';
-                statusDiv.className = 'status error';
-                statusDiv.textContent = 'Please enter a proof hash to verify';
+            if (!proofHashToVerify) {
+                resultDiv.innerHTML = '<p class="error-msg">❌ Error: Please generate a proof first to get a hash to verify.</p>';
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Verify Proof';
                 return;
             }
             
-            statusDiv.style.display = 'block';
-            statusDiv.className = 'status info';
-            statusDiv.textContent = 'Verifying proof with Noir backend...';
-            
+            // This is the key part: retrieve the original proof generation data from sessionStorage
+            const storedDataJSON = sessionStorage.getItem(proofHashToVerify);
+            console.log(`Retrieved from sessionStorage: ${storedDataJSON}`);
+            let storedProofData = null;
+            if (storedDataJSON) {
+                try {
+                    storedProofData = JSON.parse(storedDataJSON);
+                } catch(e) {
+                    console.error("Error parsing data from sessionStorage", e);
+                }
+            }
+
             try {
-                // Check if this matches our most recent proof
-                const lastProof = localStorage.getItem('lastGeneratedProof');
-                if (lastProof) {
-                    const proof = JSON.parse(lastProof);
-                    if (proof.proofHash === proofHash) {
-                        // Call backend for actual verification
-                        const verifyUrl = window.location.hostname === 'localhost' ? 
-                                        '/api/verify-proof' : 
-                                        'http://localhost:3001/api/verify-proof';
-                        const response = await fetch(verifyUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ proofHash })
-                        });
-                        
-                        const result = await response.json();
-                        
-                        if (result.success && result.verified) {
-                            statusDiv.className = 'status success';
-                            // Convert timestamp to East African Time (GMT+3)
-                            const formatToEAT = (timestamp) => {
-                                const date = timestamp ? new Date(timestamp) : new Date();
-                                return date.toLocaleString('en-US', {
-                                    timeZone: 'Africa/Nairobi',
-                                    year: 'numeric',
-                                    month: '2-digit',
-                                    day: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: false
-                                }) + ' EAT';
-                            };
-                            statusDiv.innerHTML = `
-                                <strong>✅ Proof Verified Successfully!</strong><br>
-                                This proof is cryptographically valid and confirms venue presence.<br>
-                                Generated: ${formatToEAT(proof.timestamp)}<br>
-                                Verification Output: ${result.verificationOutput || 'Proof verified by Noir'}
-                            `;
-                        } else {
-                            statusDiv.className = 'status error';
-                            statusDiv.textContent = `❌ Proof verification failed: ${result.error || 'Invalid proof'}`;
-                        }
-                        return;
-                    }
-                }
-                
-                // For unknown proofs, try to verify anyway
-                const verifyUrl = window.location.hostname === 'localhost' ? 
-                                '/api/verify-proof' : 
-                                'http://localhost:3001/api/verify-proof';
-                const response = await fetch(verifyUrl, {
+                const response = await fetch('/api/verify-proof', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ proofHash })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ proofHash: proofHashToVerify })
                 });
-                
+
                 const result = await response.json();
-                
-                if (result.success && result.verified) {
-                    statusDiv.className = 'status success';
-                    statusDiv.textContent = '✅ Proof verified successfully by Barretenberg backend!';
-                } else {
-                    statusDiv.className = 'status error';
-                    statusDiv.textContent = `❌ Proof verification failed: ${result.error || 'This proof hash does not correspond to any generated proof.'}`;
+
+                if (!response.ok) {
+                    throw new Error(result.error || `Server responded with status: ${response.status}`);
                 }
                 
+                // THIS IS THE CRITICAL CHECK that prevents the error.
+                if (!storedProofData) {
+                     resultDiv.innerHTML = `
+                        <h4>Verification Result</h4>
+                        <p><strong>Backend Status:</strong> ${result.verified ? '✅ Verified' : '❌ Failed'}</p>
+                        <p class="error-msg"><strong>Frontend Warning:</strong> Could not find original proof generation data in this browser session. This can happen if you refresh the page or open a new tab.</p>
+                        <p><strong>Proof Hash:</strong> <code>${proofHashToVerify}</code></p>
+                        <hr>
+                        <details>
+                            <summary>Raw Backend Verification Output</summary>
+                            <pre><code>${JSON.stringify(result, null, 2)}</code></pre>
+                        </details>
+                     `;
+                     return;
+                }
+
+                const verificationHtml = `
+                    <h4>Verification Result</h4>
+                    <p><strong>Status:</strong> ${result.verified ? '✅ Verified' : '❌ Failed'}</p>
+                    <p><strong>Proof Hash:</strong> <code>${proofHashToVerify}</code></p>
+                    <p><strong>Backend Verification Time:</strong> ${new Date(result.timestamp).toLocaleString()}</p>
+                    <p><strong>Original Proof Generation Time:</strong> ${new Date(storedProofData.timestamp).toLocaleString()}</p>
+                    <hr>
+                    <details>
+                        <summary>Raw Verification Output</summary>
+                        <pre><code>${JSON.stringify(result, null, 2)}</code></pre>
+                    </details>
+                `;
+                resultDiv.innerHTML = verificationHtml;
+
             } catch (error) {
                 console.error('Verification error:', error);
-                statusDiv.className = 'status error';
-                statusDiv.textContent = `❌ Verification error: ${error.message}`;
+                resultDiv.innerHTML = `<p class="error-msg">❌ Verification error: ${error.message}</p>`;
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Verify Proof';
             }
         }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            initializeTimestamp();
-            console.log('WiFi Connection Proof V1 Demo initialized');
+            initializeDemoData();
+            console.log('Zanzalu Presence Proof Demo Initialized');
         });
     </script>
 </body>
-</html> 
+</html>

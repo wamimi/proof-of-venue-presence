@@ -297,6 +297,7 @@ function generateProofHash(data) {
         hash = hash & hash; // Convert to 32bit integer
     }
     return '0x' + Math.abs(hash).toString(16).padStart(40, '0').substring(0, 40);
+    
 }
 
 function generateNullifier(userSecret, venueId, timeWindowStart) {
