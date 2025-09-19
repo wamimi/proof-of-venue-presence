@@ -4,16 +4,16 @@ use dep::std;
 // without revealing your identity or exact connection details
 
 fn main(
-    // Private inputs 
+    // Private inputs
     user_secret: Field,              // User's private secret which binds proof to user
     connection_nonce: Field,         // Random nonce for this proof session
-    
+
     // Public inputs (visible to verifier)
-    venue_id: Field,                 // Unique venue identifier from QR code
-    network_ssid_hash: Field,        // Hash of WiFi network name
-    time_window_start: u64,          // Valid time window start (Unix timestamp)
-    time_window_end: u64,            // Valid time window end (Unix timestamp)
-    proof_timestamp: u64             // When this proof was generated
+    venue_id: pub Field,                 // Unique venue identifier from QR code
+    network_ssid_hash: pub Field,        // Hash of WiFi network name
+    time_window_start: pub u64,          // Valid time window start (Unix timestamp)
+    time_window_end: pub u64,            // Valid time window end (Unix timestamp)
+    proof_timestamp: pub u64             // When this proof was generated
 ) {
     // 1. Verify proof timestamp is within valid time window
     assert(proof_timestamp >= time_window_start);
@@ -75,6 +75,3 @@ fn test_simple_wifi_proof() {
         1640996800     // proof_timestamp
     );
 }
-
-// Note: Enhanced signature verification functionality will be added in future versions
-// when proper EdDSA/ECDSA verification is implemented

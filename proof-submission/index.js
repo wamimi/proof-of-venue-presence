@@ -5,68 +5,94 @@ dotenv.config();
 
 const API_URL = 'https://relayer-api.horizenlabs.io/api/v1';
 
-const bufvk = fs.readFileSync("../target/vk_artifacts/vk");
-const bufproof = fs.readFileSync("../target/proof_artifacts/proof");
-const hexProof = "0x" + bufproof.toString("hex");
-const hexVk = "0x" + bufvk.toString("hex");
-
+// Import HEX artifacts
+const proof = fs.readFileSync('../target/zkv_proof.hex', 'utf-8');
+const publicInputs = fs.readFileSync('../target/zkv_pubs.hex', 'utf-8');
+const vkey = fs.readFileSync('../target/zkv_vk.hex', 'utf-8');
 
 async function main() {
-
-    if(!fs.existsSync("noir-vkey.json")){
-        // Registering the verification key
-        try{
-            const regParams = {
-                "proofType": "ultrahonk",
-                "vk": hexVk
-            }
-            const regResponse = await axios.post(`${API_URL}/register-vk/${process.env.API_KEY}`, regParams);
-            fs.writeFileSync(
-                "noir-vkey.json",
-                JSON.stringify(regResponse.data)
-            );
-        }catch(error){
-            fs.writeFileSync(
-                "noir-vkey.json",
-                JSON.stringify(error.response.data)
-            );
-        }
-    }
-    
-
-    const vk = JSON.parse(fs.readFileSync("noir-vkey.json"));
-    
-    const params = {
+  // --- Register VK ---
+  if (!fs.existsSync("noir-vkey.json")) {
+    try {
+      const regParams = {
         "proofType": "ultrahonk",
-        "vkRegistered": true,
-        "chainId":11155111,
-        "proofData": {
-            "proof": hexProof,
-            "vk": vk.vkHash || vk.meta.vkHash
-        }
+        "vk": vkey.split("\n")[0]
+      };
+
+      console.log("Registering VK with:", regParams);
+
+      const regResponse = await axios.post(
+        `${API_URL}/register-vk/${process.env.API_KEY}`,
+        regParams
+      );
+
+      fs.writeFileSync("noir-vkey.json", JSON.stringify(regResponse.data));
+      console.log("VK registered:", regResponse.data);
+    } catch (error) {
+      console.error("VK registration failed:", error.response?.data || error);
+      fs.writeFileSync(
+        "noir-vkey.json",
+        JSON.stringify(error.response?.data || { error: "unknown" })
+      );
+    }
+  }
+
+  const vk = JSON.parse(fs.readFileSync("noir-vkey.json"));
+
+  // --- Submit proof ---
+  const params = {
+    "proofType": "ultrahonk",
+    "vkRegistered": true,
+    "chainId": 11155111,
+    "proofData": {
+      "proof": proof.proof,
+      "publicSignals": proof.pub_inputs,
+      "vk": vk.vkHash || vk.meta.vkHash
+    }
+  };
+
+  console.log("Submitting proof with:", params);
+
+  try {
+    const requestResponse = await axios.post(
+      `${API_URL}/submit-proof/${process.env.API_KEY}`,
+      params
+    );
+
+    console.log("Submit response:", requestResponse.data);
+
+    if (requestResponse.data.optimisticVerify != "success") {
+      console.error("Proof verification failed, check proof artifacts");
+      return;
     }
 
-    const requestResponse = await axios.post(`${API_URL}/submit-proof/${process.env.API_KEY}`, params)
-    console.log(requestResponse.data)
+    // --- Poll job status ---
+    while (true) {
+      const jobStatusResponse = await axios.get(
+        `${API_URL}/job-status/${process.env.API_KEY}/${requestResponse.data.jobId}`
+      );
 
-    if(requestResponse.data.optimisticVerify != "success"){
-        console.error("Proof verification, check proof artifacts");
-        return;
-    }
+      console.log("Job status:", jobStatusResponse.data.status);
 
-    while(true){
-        const jobStatusResponse = await axios.get(`${API_URL}/job-status/${process.env.API_KEY}/${requestResponse.data.jobId}`);
-        if(jobStatusResponse.data.status === "Aggregated"){
-            console.log("Job aggregated successfully");
-            console.log(jobStatusResponse.data);
-            fs.writeFileSync("aggregation.json", JSON.stringify({...jobStatusResponse.data.aggregationDetails, aggregationId: jobStatusResponse.data.aggregationId}))
-            break;
-        }else{
-            console.log("Job status: ", jobStatusResponse.data.status);
-            console.log("Waiting for job to aggregated...");
-            await new Promise(resolve => setTimeout(resolve, 20000)); // Wait for 5 seconds before checking again
-        }
+      if (jobStatusResponse.data.status === "Aggregated") {
+        console.log("Job aggregated successfully");
+        console.log(jobStatusResponse.data);
+        fs.writeFileSync(
+          "aggregation.json",
+          JSON.stringify({
+            ...jobStatusResponse.data.aggregationDetails,
+            aggregationId: jobStatusResponse.data.aggregationId
+          })
+        );
+        break;
+      } else {
+        console.log("Waiting for job to aggregate...");
+        await new Promise(resolve => setTimeout(resolve, 20000));
+      }
     }
+  } catch (error) {
+    console.error("Submit-proof failed:", error.response?.data || error);
+  }
 }
 
 main();
