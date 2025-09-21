@@ -98,3 +98,5 @@ tests/coverage/
 portal/keys/*.pem
 portal/keys/*.key
 portal/keys/venue-private-key.pem
+
+.gitkeep
