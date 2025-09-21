@@ -12,8 +12,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // 🔍 DEBUG: Log all environment variables to see what's available
-  console.log('🔍 Environment Debug:', {
+  // Debug: Log environment variables
+  console.log('Environment Debug:', {
     nodeEnv: process.env.NODE_ENV,
     hasApiKey: !!process.env.API_KEY,
     apiKeyPreview: process.env.API_KEY ? process.env.API_KEY.substring(0, 8) + '...' : 'undefined',
@@ -24,10 +24,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     cwd: process.cwd()
   });
 
-  // 🔑 Check if API key is configured
+  // Check if API key is configured
   if (!process.env.API_KEY) {
-    console.error('🚨 zkVerify API_KEY not configured in environment variables');
-    console.error('💡 Make sure you have .env.local file in proof-app directory with: API_KEY=your_key_here');
+    console.error('zkVerify API_KEY not configured in environment variables');
+    console.error('Make sure you have .env.local file in proof-app directory with: API_KEY=your_key_here');
     return res.status(500).json({
       error: "Server configuration error",
       details: "zkVerify API_KEY not configured",
@@ -49,11 +49,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       publicInputsPreview: req.body.publicInputs?.slice(0, 2) // Show first 2 public inputs
     });
 
-    // 🔧 FIX: Convert proof and VK arrays correctly
+    // Convert proof and VK arrays correctly
     const proofUint8 = new Uint8Array(Object.values(req.body.proof));
     const vkUint8 = new Uint8Array(Object.values(req.body.vk));
     
-    // 🔧 FIX: Convert hex string public inputs to bytes correctly
+    // Convert hex string public inputs to bytes correctly
     const publicInputsUint8 = new Uint8Array(
       req.body.publicInputs.flatMap((hexStr: string) => {
         // Remove 0x prefix and convert hex to bytes
@@ -66,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
     );
 
-    console.log('🔧 Converted data sizes:', {
+    console.log('Converted data sizes:', {
       proofBytes: proofUint8.length,
       publicInputsBytes: publicInputsUint8.length,
       vkBytes: vkUint8.length
@@ -107,8 +107,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       vkRegistered: params.vkRegistered
     });
 
-    // 🔍 DEBUG: Log exactly what we're sending to zkVerify
-    console.log('🌐 zkVerify payload preview:', {
+    // Debug: Log exactly what is being sent to zkVerify
+    console.log('zkVerify payload preview:', {
       proofType: params.proofType,
       vkRegistered: params.vkRegistered,
       proofOptionsValid: !!params.proofOptions,
@@ -124,8 +124,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('zkVerify response:', requestResponse.data);
 
     if (requestResponse.data.optimisticVerify != "success") {
-      console.error("🚨 WiFiProof verification failed:", requestResponse.data);
-      console.error("🔍 Debugging info:", {
+      console.error("WiFiProof verification failed:", requestResponse.data);
+      console.error("Debugging info:", {
         sentProofSize: params.proofData.proof.length,
         sentPublicInputs: params.proofOptions.numberOfPublicInputs,
         sentVkHash: params.proofData.vk,
@@ -199,10 +199,10 @@ async function registerVk(vkUint8: Uint8Array) {
   try {
     const vkBuffer = Buffer.from(vkUint8);
     const regParams = {
-      proofType: "ultraplonk", // WiFiProof uses UltraPlonk (zkVerify requirement)
+      proofType: "ultraplonk", 
       vk: vkBuffer.toString("base64"),
       proofOptions: {
-        numberOfPublicInputs: 7, // WiFiProof specific
+        numberOfPublicInputs: 7, 
       },
     };
 
