@@ -304,10 +304,36 @@ export default function ProofComponent() {
       setProofResult(proofData);
       console.log('Proof generation completed successfully!');
 
-      // Step 6: Submit to zkVerify
-      setVerificationStatus('Step 6/6: Submitting to zkVerify...');
+      // Step 6a: Submit to portal for nonce validation
+      setVerificationStatus('Step 6a/6: Validating portal nonce...');
+      console.log('Submitting to portal for nonce validation...');
+
+      const portalRes = await fetch(`${portalEndpoint}/api/submit-proof`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          proof_hex: '0x' + Array.from(proofData.proof).map(b => b.toString(16).padStart(2, '0')).join(''),
+          public_inputs_hex: '0x' + Array.from(proofData.publicInputs).map(b => b.toString(16).padStart(2, '0')).join(''),
+          vk_hex: '0x' + Array.from(proofData.vk).map(b => b.toString(16).padStart(2, '0')).join(''),
+          portal_nonce: proofData.portalNonce
+        })
+      });
+
+      const portalData = await portalRes.json();
+      console.log('Portal validation response:', portalData);
+
+      if (!portalRes.ok) {
+        throw new Error(`Portal validation failed: ${portalData.message || portalData.error}`);
+      }
+
+      console.log('Portal validation successful, nonce marked as used');
+
+      // Step 6b: Submit to zkVerify via relayer
+      setVerificationStatus('Step 6b/6: Submitting to zkVerify...');
       console.log('Submitting proof to zkVerify via relayer API...');
-      
+
       const res = await fetch('/api/relayer', {
         method: 'POST',
         headers: {
