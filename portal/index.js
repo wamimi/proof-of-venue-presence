@@ -47,12 +47,12 @@ async function initializePortal() {
     try {
         // Initialize database
         db = await initializeDB();
-        console.log('✅ Database initialized');
+        console.log('Database initialized');
 
         // Load or generate venue keys
         if (fs.existsSync(KEY_PATH)) {
             venuePrivateKey = fs.readFileSync(KEY_PATH, 'utf8');
-            console.log('✅ Loaded existing venue private key');
+            console.log('Loaded existing venue private key');
         } else {
             const keyPair = await generateKeyPair();
             venuePrivateKey = keyPair.privateKey;
@@ -60,15 +60,15 @@ async function initializePortal() {
             // Ensure directory exists
             fs.mkdirSync(path.dirname(KEY_PATH), { recursive: true });
             fs.writeFileSync(KEY_PATH, venuePrivateKey);
-            console.log('✅ Generated new venue private key');
+            console.log('Generated new venue private key');
         }
 
         // Export public key in JWK format for client verification
         venuePublicKeyJWK = await exportPublicKeyJWK(venuePrivateKey);
-        console.log('✅ Exported venue public key JWK');
+        console.log('Exported venue public key JWK');
 
     } catch (error) {
-        console.error('❌ Failed to initialize portal:', error);
+        console.error('Failed to initialize portal:', error);
         process.exit(1);
     }
 }
@@ -77,11 +77,11 @@ async function initializePortal() {
 app.post('/api/issue-nonce', async (req, res) => {
     const clientIP = req.ip || req.connection.remoteAddress;
 
-    console.log(`📡 Nonce request from IP: ${clientIP}`);
+    console.log(`Nonce request from IP: ${clientIP}`);
 
     // Security: Only allow local network IPs
     if (!isLocalIP(clientIP)) {
-        console.warn(`🚫 Rejected non-local IP: ${clientIP}`);
+        console.warn(`Rejected non-local IP: ${clientIP}`);
         return res.status(403).json({
             error: 'Access denied',
             message: 'Nonce issuance only available to local network clients'
@@ -102,7 +102,7 @@ app.post('/api/issue-nonce', async (req, res) => {
         // Store nonce in database
         await insertNonce(db, nonce, clientIP, ts);
 
-        console.log(`✅ Issued nonce ${nonce.substring(0, 8)}... to ${clientIP}`);
+        console.log(`Issued nonce ${nonce.substring(0, 8)}... to ${clientIP}`);
 
         res.json({
             venue_id: VENUE_ID,
@@ -114,7 +114,7 @@ app.post('/api/issue-nonce', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('❌ Error issuing nonce:', error);
+        console.error('Error issuing nonce:', error);
         res.status(500).json({
             error: 'Internal server error',
             message: 'Failed to issue nonce'
@@ -124,7 +124,7 @@ app.post('/api/issue-nonce', async (req, res) => {
 
 // POST /api/submit-proof - Accept and relay proof to zkVerify
 app.post('/api/submit-proof', async (req, res) => {
-    console.log('📡 Received proof submission');
+    console.log('Received proof submission');
 
     try {
         const { proof_hex, public_inputs_hex, vk_hex, portal_nonce } = req.body;
@@ -148,7 +148,7 @@ app.post('/api/submit-proof', async (req, res) => {
 
         // Mark nonce as used atomically
         await markNonceUsed(db, portal_nonce);
-        console.log(`✅ Marked nonce ${portal_nonce.substring(0, 8)}... as used`);
+        console.log(`Marked nonce ${portal_nonce.substring(0, 8)}... as used`);
 
         // Forward to zkVerify if API key is configured
         if (ZKVERIFY_API_KEY && ZKVERIFY_ENDPOINT) {
@@ -171,7 +171,7 @@ app.post('/api/submit-proof', async (req, res) => {
 
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('✅ Successfully submitted to zkVerify');
+                    console.log('Successfully submitted to zkVerify');
 
                     res.json({
                         success: true,
@@ -184,7 +184,7 @@ app.post('/api/submit-proof', async (req, res) => {
                 }
 
             } catch (zkError) {
-                console.error('❌ zkVerify submission failed:', zkError);
+                console.error('zkVerify submission failed:', zkError);
 
                 // Still return success for proof acceptance, but note relay failure
                 res.json({
@@ -195,7 +195,7 @@ app.post('/api/submit-proof', async (req, res) => {
             }
         } else {
             // No zkVerify configuration - just accept the proof
-            console.log('⚠️ No zkVerify configuration - proof accepted locally only');
+            console.log('No zkVerify configuration - proof accepted locally only');
             res.json({
                 success: true,
                 message: 'Proof accepted (zkVerify not configured)'
@@ -203,7 +203,7 @@ app.post('/api/submit-proof', async (req, res) => {
         }
 
     } catch (error) {
-        console.error('❌ Error processing proof submission:', error);
+        console.error('Error processing proof submission:', error);
         res.status(500).json({
             error: 'Internal server error',
             message: error.message
@@ -270,16 +270,16 @@ app.get('/', (req, res) => {
 </head>
 <body>
     <div class="container">
-        <h1>🔐 WiFi Portal</h1>
+        <h1>WiFi Portal</h1>
         <div class="venue-info">
-            <h2>📍 ${VENUE_ID}</h2>
-            <p>📅 Event: ${EVENT_ID}</p>
-            <p>⏰ ${new Date().toLocaleString()}</p>
+            <h2>${VENUE_ID}</h2>
+            <p>Event: ${EVENT_ID}</p>
+            <p>${new Date().toLocaleString()}</p>
         </div>
         <p>Generate a zero-knowledge proof of your attendance at this venue.</p>
 
         <a href="${proofAppUrl}" class="redirect-btn">
-            🚀 Continue to WiFiProof
+            Continue to WiFiProof
         </a>
 
         <div class="auto-redirect">
@@ -320,14 +320,14 @@ app.get('/api/health', (req, res) => {
 // Start server
 initializePortal().then(() => {
     app.listen(PORT, () => {
-        console.log(`🚀 Portal server running on http://localhost:${PORT}`);
-        console.log(`🏢 Venue: ${VENUE_ID} | Event: ${EVENT_ID}`);
-        console.log(`🔧 Endpoints:`);
+        console.log(`Portal server running on http://localhost:${PORT}`);
+        console.log(`Venue: ${VENUE_ID} | Event: ${EVENT_ID}`);
+        console.log(`Endpoints:`);
         console.log(`   GET  / - Captive portal landing page`);
         console.log(`   POST /api/issue-nonce - Issue portal nonce`);
         console.log(`   POST /api/submit-proof - Submit ZK proof`);
         console.log(`   GET  /api/health - Health check`);
-        console.log(`🔐 zkVerify: ${ZKVERIFY_API_KEY ? 'Configured' : 'Not configured'}`);
+        console.log(`zkVerify: ${ZKVERIFY_API_KEY ? 'Configured' : 'Not configured'}`);
     });
 });
 

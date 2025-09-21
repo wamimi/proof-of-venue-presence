@@ -57,10 +57,10 @@ const hashToField = (hash: string): string => {
   const hashBigInt = BigInt('0x' + cleanHash);
   let fieldValue = hashBigInt % fieldModulus;
   
-  // 🛡️ SAFETY: Ensure field value is never zero (would violate constraints)
+  // Ensure field value is never zero (would violate constraints)
   if (fieldValue === BigInt(0)) {
     fieldValue = BigInt(1); // Use 1 as fallback for zero hash (extremely unlikely)
-    console.warn('⚠️ Hash reduced to zero, using fallback value 1');
+    console.warn('Hash reduced to zero, using fallback value 1');
   }
 
   return fieldValue.toString();
@@ -143,7 +143,7 @@ export default function ProofComponent() {
 
       const nonceData = await response.json();
       setPortalNonce(nonceData);
-      setVerificationStatus('✅ Portal nonce received successfully');
+      setVerificationStatus('Portal nonce received successfully');
 
     } catch (error: any) {
       setErrorMsg(`Failed to fetch portal nonce: ${error.message}`);
@@ -166,38 +166,38 @@ export default function ProofComponent() {
     setIsLoading(true);
     setProofResult(null);
     setErrorMsg('');
-    setVerificationStatus('🔄 Starting WiFiProof generation...');
+    setVerificationStatus('Starting WiFiProof generation...');
     setTxHash(null);
 
     // ⏰ Add timeout protection (5 minutes max)
     const timeoutId = setTimeout(() => {
       setIsLoading(false);
-      setErrorMsg('⏰ Proof generation timed out after 5 minutes. This might be due to computational complexity or system resources.');
+      setErrorMsg('Proof generation timed out after 5 minutes. This might be due to computational complexity or system resources.');
       setVerificationStatus('');
     }, 5 * 60 * 1000);
 
     try {
-      // 🔄 Step 1: Load WiFiProof circuit
-      setVerificationStatus('🔄 Step 1/6: Loading circuit artifacts...');
-      console.log('📁 Loading circuit from /wifiproof/target/wifiproof.json');
+      // Step 1: Load WiFiProof circuit
+      setVerificationStatus('Step 1/6: Loading circuit artifacts...');
+      console.log('Loading circuit from /wifiproof/target/wifiproof.json');
       
       const circuit_json = await fetch("/wifiproof/target/wifiproof.json");
       if (!circuit_json.ok) {
         throw new Error('Failed to load circuit. Make sure it\'s compiled.');
       }
       const noir_data = await circuit_json.json();
-      console.log('✅ Circuit loaded successfully:', {
+      console.log('Circuit loaded successfully:', {
         bytecodeLength: noir_data.bytecode?.length || 0,
         abiParams: noir_data.abi?.parameters?.length || 0
       });
 
-      // 🔄 Step 2: Prepare circuit inputs
-      setVerificationStatus('🔄 Step 2/6: Preparing circuit inputs...');
-      console.log('⚙️ Preparing circuit inputs...');
+      // Step 2: Prepare circuit inputs
+      setVerificationStatus('Step 2/6: Preparing circuit inputs...');
+      console.log('Preparing circuit inputs...');
       
       const proofTimestamp = Math.floor(Date.now() / 1000);
       const connectionNonce = Math.floor(Math.random() * 1000000);
-      console.log('🕐 Timestamp data:', { proofTimestamp, connectionNonce });
+      console.log('Timestamp data:', { proofTimestamp, connectionNonce });
 
       // Hash portal data and convert to field-safe values
       const nonceHash = await sha256Hash(portalNonce.nonce);
@@ -237,9 +237,9 @@ export default function ProofComponent() {
         proof_timestamp: proofTimestamp              // Keep as number for u64
       };
 
-      // ⚡ ENHANCED DEBUGGING FOR CONSTRAINT DIAGNOSIS
+      // Enhanced debugging for constraint diagnosis
       console.log('WiFiProof Circuit Inputs:', input);
-      console.log('🕐 Time Window Analysis:', {
+      console.log('Time Window Analysis:', {
         timeWindowStart: timeWindowStartTs,
         timeWindowEnd: timeWindowEndTs,
         proofTimestamp: proofTimestamp,
@@ -248,50 +248,50 @@ export default function ProofComponent() {
         endDate: new Date(timeWindowEndTs * 1000).toISOString(),
         proofDate: new Date(proofTimestamp * 1000).toISOString()
       });
-      console.log('🔐 Hash Field Analysis:', {
+      console.log('Hash Field Analysis:', {
         nonceHashZero: nonceHashField === '0',
         portalSigHashZero: portalSigHashField === '0',
         nonceHashField,
         portalSigHashField
       });
 
-      // 🔄 Step 3: Initialize Noir circuit
-      setVerificationStatus('🔄 Step 3/6: Initializing Noir circuit...');
-      console.log('🏗️ Initializing Noir with circuit data...');
+      // Step 3: Initialize Noir circuit
+      setVerificationStatus('Step 3/6: Initializing Noir circuit...');
+      console.log('Initializing Noir with circuit data...');
       
       const noir = new Noir(noir_data);
-      console.log('✅ Noir circuit initialized');
+      console.log('Noir circuit initialized');
 
-      // 🔄 Step 4: Execute circuit to generate witness
-      setVerificationStatus('🔄 Step 4/6: Executing circuit (this may take a while)...');
-      console.log('⚡ Executing circuit with inputs:', Object.keys(input));
-      console.log('⚡ Starting circuit execution - this is the most computationally intensive step...');
+      // Step 4: Execute circuit to generate witness
+      setVerificationStatus('Step 4/6: Executing circuit (this may take a while)...');
+      console.log('Executing circuit with inputs:', Object.keys(input));
+      console.log('Starting circuit execution - this is the most computationally intensive step...');
       
       const execResult = await noir.execute(input);
-      console.log("✅ Witness Generated Successfully:", {
+      console.log("Witness Generated Successfully:", {
         witnessLength: execResult.witness?.length || 0,
         returnValue: execResult.returnValue
       });
 
-      // 🔄 Step 5: Generate cryptographic proof
-      setVerificationStatus('🔄 Step 5/6: Generating ZK proof (this takes the longest)...');
-      console.log('🔐 Initializing UltraPlonk backend...');
+      // Step 5: Generate cryptographic proof
+      setVerificationStatus('Step 5/6: Generating ZK proof (this takes the longest)...');
+      console.log('Initializing UltraPlonk backend...');
       
       const backend = new UltraPlonkBackend(noir_data.bytecode, {threads: 2});
-      console.log('✅ UltraPlonk backend initialized');
+      console.log('UltraPlonk backend initialized');
       
-      console.log('🔥 Starting proof generation - this is the most time-consuming step...');
-      console.log('💡 Tip: Proof generation can take 30 seconds to several minutes depending on your hardware');
+      console.log('Starting proof generation - this is the most time-consuming step...');
+      console.log('Tip: Proof generation can take 30 seconds to several minutes depending on your hardware');
       
       const { proof, publicInputs } = await backend.generateProof(execResult.witness);
-      console.log('✅ ZK Proof generated successfully:', {
+      console.log('ZK Proof generated successfully:', {
         proofLength: proof.length,
         publicInputsLength: publicInputs.length
       });
       
-      console.log('🔑 Getting verification key...');
+      console.log('Getting verification key...');
       const vk = await backend.getVerificationKey();
-      console.log('✅ Verification key obtained:', { vkLength: vk.length });
+      console.log('Verification key obtained:', { vkLength: vk.length });
 
       const proofData: ProofData = {
         proof: Array.from(proof) as number[],
@@ -302,12 +302,38 @@ export default function ProofComponent() {
       };
 
       setProofResult(proofData);
-      console.log('✅ Proof generation completed successfully!');
+      console.log('Proof generation completed successfully!');
 
-      // 🔄 Step 6: Submit to zkVerify
-      setVerificationStatus('🔄 Step 6/6: Submitting to zkVerify...');
-      console.log('🌐 Submitting proof to zkVerify via relayer API...');
-      
+      // Step 6a: Submit to portal for nonce validation
+      setVerificationStatus('Step 6a/6: Validating portal nonce...');
+      console.log('Submitting to portal for nonce validation...');
+
+      const portalRes = await fetch(`${portalEndpoint}/api/submit-proof`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          proof_hex: '0x' + Array.from(proofData.proof).map(b => b.toString(16).padStart(2, '0')).join(''),
+          public_inputs_hex: '0x' + Array.from(proofData.publicInputs).map(b => b.toString(16).padStart(2, '0')).join(''),
+          vk_hex: '0x' + Array.from(proofData.vk).map(b => b.toString(16).padStart(2, '0')).join(''),
+          portal_nonce: proofData.portalNonce
+        })
+      });
+
+      const portalData = await portalRes.json();
+      console.log('Portal validation response:', portalData);
+
+      if (!portalRes.ok) {
+        throw new Error(`Portal validation failed: ${portalData.message || portalData.error}`);
+      }
+
+      console.log('Portal validation successful, nonce marked as used');
+
+      // Step 6b: Submit to zkVerify via relayer
+      setVerificationStatus('Step 6b/6: Submitting to zkVerify...');
+      console.log('Submitting proof to zkVerify via relayer API...');
+
       const res = await fetch('/api/relayer', {
         method: 'POST',
         headers: {
@@ -317,35 +343,35 @@ export default function ProofComponent() {
       });
 
       const data = await res.json();
-      console.log('📥 zkVerify response:', data);
+      console.log('zkVerify response:', data);
 
       // Clear timeout since we completed successfully
       clearTimeout(timeoutId);
 
       if (res.ok) {
-        setVerificationStatus('✅ Proof verified successfully!');
-        console.log('🎉 WiFiProof verified on zkVerify!');
+        setVerificationStatus('Proof verified successfully!');
+        console.log('WiFiProof verified on zkVerify!');
         if (data.txHash) {
           setTxHash(data.txHash);
-          console.log('🔗 Transaction hash:', data.txHash);
+          console.log('Transaction hash:', data.txHash);
         }
       } else {
-        setVerificationStatus('❌ Proof verification failed.');
-        console.error('❌ zkVerify verification failed:', data);
+        setVerificationStatus('Proof verification failed.');
+        console.error('zkVerify verification failed:', data);
       }
     } catch (error: any) {
       // Clear timeout on error
       clearTimeout(timeoutId);
       
-      console.error('💥 WiFiProof generation error:', error);
-      console.error('📊 Error details:', {
+      console.error('WiFiProof generation error:', error);
+      console.error('Error details:', {
         name: error.name,
         message: error.message,
         stack: error.stack?.split('\n')[0] // First line of stack trace
       });
       
       setErrorMsg(
-        `❌ Error generating WiFiProof: ${error.message}`
+        `Error generating WiFiProof: ${error.message}`
       );
     } finally {
       setIsLoading(false);
@@ -354,12 +380,12 @@ export default function ProofComponent() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
-      <h1 className="text-4xl font-bold mb-6 text-gray-900">🔐 WiFiProof - Zero-Knowledge Venue Attendance</h1>
+      <h1 className="text-4xl font-bold mb-6 text-gray-900">WiFiProof - Zero-Knowledge Venue Attendance</h1>
 
       {/* User Secret Display */}
       <div className="bg-blue-50 p-4 rounded-lg mb-6 w-full max-w-2xl">
         <p className="text-sm text-blue-800">
-          <strong>🔑 Your Device Secret:</strong> {userSecret.substring(0, 16)}...
+          <strong>Your Device Secret:</strong> {userSecret.substring(0, 16)}...
           <br />
           <small>This secret is stored locally and never leaves your browser.</small>
         </p>
@@ -405,11 +431,11 @@ export default function ProofComponent() {
       {portalNonce && (
         <div className="bg-green-50 p-4 rounded-lg mb-6 w-full max-w-2xl">
           <p className="text-sm text-green-800">
-            <strong>🎫 Portal Nonce:</strong> {portalNonce.nonce.substring(0, 16)}...
+            <strong>Portal Nonce:</strong> {portalNonce.nonce.substring(0, 16)}...
             <br />
-            <strong>🏢 Venue:</strong> {portalNonce.venue_id} | <strong>📅 Event:</strong> {portalNonce.event_id}
+            <strong>Venue:</strong> {portalNonce.venue_id} | <strong>Event:</strong> {portalNonce.event_id}
             <br />
-            <strong>🕐 Issued:</strong> {new Date(portalNonce.ts * 1000).toLocaleString()}
+            <strong>Issued:</strong> {new Date(portalNonce.ts * 1000).toLocaleString()}
           </p>
         </div>
       )}
@@ -423,7 +449,7 @@ export default function ProofComponent() {
             isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
           } text-white font-semibold px-6 py-2 rounded-lg`}
         >
-          {isLoading ? 'Fetching...' : '🎫 Fetch Portal Nonce'}
+          {isLoading ? 'Fetching...' : 'Fetch Portal Nonce'}
         </button>
 
         <button
@@ -433,7 +459,7 @@ export default function ProofComponent() {
             isLoading || !portalNonce ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
           } text-white font-semibold px-6 py-2 rounded-lg`}
         >
-          {isLoading ? 'Generating...' : '🚀 Generate WiFiProof'}
+          {isLoading ? 'Generating...' : 'Generate WiFiProof'}
         </button>
       </div>
 
@@ -462,7 +488,7 @@ export default function ProofComponent() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            🔗 View on Subscan (txHash: {txHash.slice(0, 10)}...)
+            View on Subscan (txHash: {txHash.slice(0, 10)}...)
           </a>
         </div>
       )}
@@ -470,7 +496,7 @@ export default function ProofComponent() {
       {/* Output */}
       {proofResult && (
         <div className="mt-8 bg-white shadow-md p-4 rounded-lg w-full max-w-xl">
-          <h2 className="text-xl font-bold mb-2 text-green-700">✅ WiFiProof Generated</h2>
+          <h2 className="text-xl font-bold mb-2 text-green-700">WiFiProof Generated</h2>
           <pre className="text-sm overflow-x-auto whitespace-pre-wrap break-words">
             {JSON.stringify(proofResult, null, 2)}
           </pre>
