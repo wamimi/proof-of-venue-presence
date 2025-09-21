@@ -58,6 +58,7 @@ app.post('/api/generate-proof', async (req, res) => {
             connectionNonce,
             venueId,
             networkSsidHash,
+            eventId,
             timeWindowStart,
             timeWindowEnd,
             proofTimestamp
@@ -69,6 +70,7 @@ user_secret = "${userSecret}"
 connection_nonce = "${connectionNonce}"
 venue_id = "${venueId}"
 network_ssid_hash = "${networkSsidHash}"
+event_id = "${eventId}"
 time_window_start = "${timeWindowStart}"
 time_window_end = "${timeWindowEnd}"
 proof_timestamp = "${proofTimestamp}"
@@ -77,6 +79,7 @@ proof_timestamp = "${proofTimestamp}"
         const publicVerifierToml = `
 venue_id = "${venueId}"
 network_ssid_hash = "${networkSsidHash}"
+event_id = "${eventId}"
 time_window_start = "${timeWindowStart}"
 time_window_end = "${timeWindowEnd}"
 proof_timestamp = "${proofTimestamp}"
@@ -125,6 +128,7 @@ proof_timestamp = "${proofTimestamp}"
             circuitOutputs: publicOutputs || {
                 venue_id: venueId,
                 network_hash: networkSsidHash,
+                event_id: eventId,
                 proof_timestamp: proofTimestamp
             },
             proverToml: publicVerifierToml,

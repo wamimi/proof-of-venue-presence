@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proof of Zanzalu</title>
+    <title>WiFiProof - Privacy-Preserving Venue Attendance</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
     <style>
         * {
             margin: 0;
@@ -207,17 +208,45 @@
 <body>
     <div class="container">
         <header>
-            <h1>📶 Zanzalu Presence Proof</h1>
-            <p>Generate a ZK proof to cryptographically verify you attended Zanzalu!</p>
+            <h1>📶 WiFiProof</h1>
+            <p>Privacy-preserving venue attendance verification with cryptographic QR codes!</p>
         </header>
 
         <div class="tabs">
-            <button class="tab-link active" onclick="openTab(event, 'generate')">Generate Proof</button>
-            <button class="tab-link" onclick="openTab(event, 'verify')">Verify Proof</button>
-            <button class="tab-link" onclick="openTab(event, 'about')">About</button>
+            <button class="tab-link active" onclick="openTab(event, 'scan')">📱 Scan QR</button>
+            <button class="tab-link" onclick="openTab(event, 'generate')">🔐 Generate Proof</button>
+            <button class="tab-link" onclick="openTab(event, 'verify')">✅ Verify Proof</button>
+            <button class="tab-link" onclick="openTab(event, 'about')">ℹ️ About</button>
         </div>
 
-        <div id="generate" class="tab-content active">
+        <div id="scan" class="tab-content active">
+            <h3>📱 Step 1: Scan Venue QR Code</h3>
+            <p>Scan the QR code provided by the venue to verify its authenticity and auto-fill venue details.</p>
+            
+            <div style="text-align: center; margin: 20px 0;">
+                <button id="startScanBtn" onclick="startQRScanner()">🎥 Start Camera</button>
+                <button id="stopScanBtn" onclick="stopQRScanner()" disabled>⏹️ Stop Camera</button>
+                <button onclick="useTestQR()">🧪 Use Test QR Data</button>
+            </div>
+
+            <video id="videoPreview" style="width: 100%; max-width: 400px; height: 300px; border-radius: 10px; margin: 20px auto; display: none;"></video>
+            <canvas id="qrCanvas" style="display: none;"></canvas>
+            
+            <div id="scanStatus"></div>
+            
+            <div id="scannedVenueInfo" style="display: none;">
+                <h4>✅ Verified Venue Information:</h4>
+                <div style="background: #e8f5e8; padding: 15px; border-radius: 10px; margin: 15px 0;">
+                    <p><strong>Venue:</strong> <span id="scannedVenueName"></span></p>
+                    <p><strong>WiFi Network:</strong> <span id="scannedWifiName"></span></p>
+                    <p><strong>Event ID:</strong> <span id="scannedEventId"></span></p>
+                    <p><strong>Valid Window:</strong> <span id="scannedTimeWindow"></span></p>
+                </div>
+                <button onclick="proceedToProofGeneration()" class="button">🔐 Proceed to Generate Proof</button>
+            </div>
+        </div>
+
+        <div id="generate" class="tab-content">
             <h3>🔐 Device Identity (Private)</h3>
             <p>Your device generates a private secret, which is never shared. It remains in your browser's local storage.</p>
             <div class="form-grid">
@@ -246,11 +275,16 @@
                     <input type="text" id="networkSsid" value="Aura Space" readonly>
                     <small>The name of the WiFi network at the coworking space.</small>
                 </div>
-                <div class="form-group" style="display: none;">
-                    <label for="networkSsidHash">Network SSID Hash</label>
-                    <input type="text" id="networkSsidHash" placeholder="Auto-generated from WiFi Name" readonly>
-                    <small>The cryptographic hash of the network name, used in the proof.</small>
-                </div>
+            <div class="form-group" style="display: none;">
+                <label for="networkSsidHash">Network SSID Hash</label>
+                <input type="text" id="networkSsidHash" placeholder="Auto-generated from WiFi Name" readonly>
+                <small>The cryptographic hash of the network name, used in the proof.</small>
+            </div>
+            <div class="form-group">
+                <label for="eventId">Event ID</label>
+                <input type="text" id="eventId" value="20241215" readonly>
+                <small>Unique identifier for this specific event or time period.</small>
+            </div>
             </div>
 
             <h3>⏰ Time Window (Public)</h3>
@@ -471,6 +505,7 @@ Verification Time: ~10ms</div>
                     connectionNonce: document.getElementById('connectionNonce').value,
                     venueId: document.getElementById('venueId').value,
                     networkSsidHash: document.getElementById('networkSsidHash').value,
+                    eventId: document.getElementById('eventId').value,
                     timeWindowStart: document.getElementById('timeWindowStart').value,
                     timeWindowEnd: document.getElementById('timeWindowEnd').value,
                     proofTimestamp: document.getElementById('proofTimestamp').value
@@ -669,10 +704,247 @@ Timestamp: ${result.timestamp}</div>
             }
         }
 
+        // QR Scanner Variables
+        let currentStream = null;
+        let qrScanner = null;
+        let scannedVenueData = null;
+
+        // QR Scanner Functions
+        async function startQRScanner() {
+            try {
+                showScanStatus('🎥 Starting camera...', 'warning');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                
+                const video = document.getElementById('videoPreview');
+                video.srcObject = stream;
+                video.style.display = 'block';
+                video.play();
+                
+                currentStream = stream;
+                
+                document.getElementById('startScanBtn').disabled = true;
+                document.getElementById('stopScanBtn').disabled = false;
+                
+                // Start scanning for QR codes
+                qrScanner = setInterval(() => {
+                    scanForQRCode(video);
+                }, 500);
+                
+                showScanStatus('📸 Camera ready! Point at venue QR code to scan', 'success');
+                
+            } catch (error) {
+                console.error('Camera access error:', error);
+                showScanStatus('❌ Camera access denied. Please allow camera access and try again.', 'error');
+            }
+        }
+
+        function stopQRScanner() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            
+            if (qrScanner) {
+                clearInterval(qrScanner);
+                qrScanner = null;
+            }
+            
+            const video = document.getElementById('videoPreview');
+            video.style.display = 'none';
+            video.srcObject = null;
+            
+            document.getElementById('startScanBtn').disabled = false;
+            document.getElementById('stopScanBtn').disabled = true;
+            
+            showScanStatus('📷 Camera stopped', 'warning');
+        }
+
+        function scanForQRCode(video) {
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                const canvas = document.getElementById('qrCanvas');
+                const context = canvas.getContext('2d');
+                
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                if (typeof jsQR !== 'undefined') {
+                    const qrCode = jsQR(imageData.data, imageData.width, imageData.height);
+                    
+                    if (qrCode) {
+                        console.log('📱 QR Code detected:', qrCode.data);
+                        processQRCode(qrCode.data);
+                        stopQRScanner();
+                    }
+                }
+            }
+        }
+
+        // QR Code Processing
+        async function processQRCode(qrData) {
+            try {
+                showScanStatus('🔍 Processing QR code...', 'warning');
+                
+                // Parse QR code data
+                const venueData = JSON.parse(qrData);
+                console.log('📋 Parsed venue data:', venueData);
+                
+                // Verify the signature
+                const isValid = await verifyVenueSignature(venueData);
+                
+                if (!isValid) {
+                    showScanStatus('❌ Invalid venue QR code! This may be a fake or tampered QR code.', 'error');
+                    return;
+                }
+                
+                // Store verified data
+                scannedVenueData = venueData;
+                
+                // Display venue information
+                displayScannedVenueData(venueData);
+                
+                showScanStatus('✅ Venue QR code verified! Proceed to generate your privacy proof.', 'success');
+                
+            } catch (error) {
+                console.error('QR processing error:', error);
+                showScanStatus('❌ Invalid QR code format. Please scan a valid venue QR code.', 'error');
+            }
+        }
+
+        // Signature Verification
+        async function verifyVenueSignature(venueData) {
+            try {
+                if (!venueData.signature || !venueData.public_key) {
+                    console.error('Missing signature or public key');
+                    return false;
+                }
+
+                // Reconstruct the original message that was signed
+                const originalMessage = {
+                    venue_id: venueData.venue_id,
+                    wifi_name: venueData.wifi_name,
+                    network_hash: venueData.network_hash,
+                    event_id: venueData.event_id,
+                    time_window_start: venueData.time_window_start,
+                    time_window_end: venueData.time_window_end
+                };
+
+                const messageToVerify = JSON.stringify(originalMessage);
+                console.log('🔍 Verifying message:', messageToVerify);
+
+                // Import the public key
+                const publicKey = await crypto.subtle.importKey(
+                    'jwk',
+                    venueData.public_key,
+                    { name: 'ECDSA', namedCurve: 'P-256' },
+                    false,
+                    ['verify']
+                );
+
+                // Convert hex signature to ArrayBuffer
+                const signatureBytes = new Uint8Array(
+                    venueData.signature.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+                );
+
+                // Verify the signature
+                const isValid = await crypto.subtle.verify(
+                    { name: 'ECDSA', hash: 'SHA-256' },
+                    publicKey,
+                    signatureBytes,
+                    new TextEncoder().encode(messageToVerify)
+                );
+
+                console.log('🔐 Signature verification result:', isValid);
+                return isValid;
+
+            } catch (error) {
+                console.error('Signature verification error:', error);
+                return false;
+            }
+        }
+
+        // Display scanned venue data
+        function displayScannedVenueData(data) {
+            document.getElementById('scannedVenueName').textContent = data.venue_name || 'Unknown Venue';
+            document.getElementById('scannedWifiName').textContent = data.wifi_name;
+            document.getElementById('scannedEventId').textContent = data.event_id;
+            
+            // Format time window
+            const startTime = new Date(data.time_window_start * 1000).toLocaleString();
+            const endTime = new Date(data.time_window_end * 1000).toLocaleString();
+            document.getElementById('scannedTimeWindow').textContent = `${startTime} - ${endTime}`;
+            
+            // Show the venue info section
+            document.getElementById('scannedVenueInfo').style.display = 'block';
+        }
+
+        // Proceed to proof generation with scanned data
+        function proceedToProofGeneration() {
+            if (!scannedVenueData) {
+                alert('No venue data available. Please scan a QR code first.');
+                return;
+            }
+            
+            // Update form fields with scanned data
+            document.getElementById('venueId').value = scannedVenueData.venue_id;
+            document.getElementById('networkSsid').value = scannedVenueData.wifi_name;
+            document.getElementById('networkSsidHash').value = scannedVenueData.network_hash;
+            document.getElementById('eventId').value = scannedVenueData.event_id;
+            document.getElementById('timeWindowStart').value = scannedVenueData.time_window_start;
+            document.getElementById('timeWindowEnd').value = scannedVenueData.time_window_end;
+            
+            // Switch to generate tab
+            openTab({ currentTarget: document.querySelector('.tab-link[onclick*="generate"]') }, 'generate');
+            
+            // Re-initialize data to get fresh user secret and nonce
+            initializeDemoData();
+        }
+
+        // Test function with mock data
+        function useTestQR() {
+            const testQRData = {
+                "venue_name": "Demo Coffee Shop",
+                "venue_id": 67890,
+                "wifi_name": "coffee_shop_guest",
+                "network_hash": "5268232a3bb43db43fd721461da03b6230c08e964b4e6d73b8d617613f58e7e0",
+                "event_id": 20241215,
+                "time_window_start": Math.floor(Date.now() / 1000) - 3600,
+                "time_window_end": Math.floor(Date.now() / 1000) + 3600,
+                "signature": "fef4385a027b5711fce1e67b0d19a9278c47823a3e9efdc2f24d98c9014c4234af9c607b6fc4d927382061ed2c275773698603fa98687820ff36227929a3ca3a",
+                "public_key": {
+                    "crv": "P-256",
+                    "ext": true,
+                    "key_ops": ["verify"],
+                    "kty": "EC",
+                    "x": "l35LM0TzK0diAIeKWKkHEtAV01U1z_wg2f0MpObj4xQ",
+                    "y": "H0JqTGawJxNl0tekSoR4H72yj33rATw0oky9-zzovGw"
+                },
+                "generated_at": Math.floor(Date.now() / 1000),
+                "crypto_type": "WebCrypto-ECDSA-P256"
+            };
+            
+            showScanStatus('🧪 Using test QR data...', 'warning');
+            processQRCode(JSON.stringify(testQRData));
+        }
+
+        // Show scan status messages
+        function showScanStatus(message, type) {
+            const statusDiv = document.getElementById('scanStatus');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             initializeDemoData();
-            console.log('Zanzalu Presence Proof Demo Initialized');
+            console.log('WiFiProof App Initialized with QR Scanner');
         });
     </script>
 </body>
