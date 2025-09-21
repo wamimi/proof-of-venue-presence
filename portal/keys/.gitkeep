@@ -1,2 +1,5 @@
-# Private keys will be stored here
-# Do not commit actual key files to git
+-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgOrdsSvoQMcr+h7P4
+x4q+BPg17OS5ljzMo2oxzsGGkY+hRANCAAQE7SuN3+7c0/iWWIXK+f/DfYuIzrop
+D+lG5jAmGs3aVeIG1qRtQvKDuZhVtW0HDzc78j157fVMOYaihGMz7AD6
+-----END PRIVATE KEY-----

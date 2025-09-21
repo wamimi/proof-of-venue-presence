@@ -1,9 +1,0 @@
-[package]
-name = "wifiproof"
-type = "bin"
-authors = ["WiFi Proof Team"]
-compiler_version = ">=0.19.0"
-
-description = "Privacy-preserving location verification using Zero-Knowledge proofs. Prove you were at a venue without revealing your device identity or location history!"
-
-[dependencies]

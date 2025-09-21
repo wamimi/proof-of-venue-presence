@@ -211,6 +211,101 @@ app.post('/api/submit-proof', async (req, res) => {
     }
 });
 
+// Captive portal landing page - redirect to proof app
+app.get('/', (req, res) => {
+    const proofAppUrl = process.env.PROOF_APP_URL || 'http://localhost:3000';
+
+    res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Portal - ${VENUE_ID}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            margin: 20px;
+        }
+        h1 { font-size: 2.5em; margin-bottom: 20px; }
+        .venue-info {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+        .redirect-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 20px 0;
+            transition: background 0.3s ease;
+        }
+        .redirect-btn:hover { background: #45a049; }
+        .auto-redirect { font-size: 14px; opacity: 0.8; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 WiFi Portal</h1>
+        <div class="venue-info">
+            <h2>📍 ${VENUE_ID}</h2>
+            <p>📅 Event: ${EVENT_ID}</p>
+            <p>⏰ ${new Date().toLocaleString()}</p>
+        </div>
+        <p>Generate a zero-knowledge proof of your attendance at this venue.</p>
+
+        <a href="${proofAppUrl}" class="redirect-btn">
+            🚀 Continue to WiFiProof
+        </a>
+
+        <div class="auto-redirect">
+            <p>You will be redirected automatically in <span id="countdown">5</span> seconds...</p>
+        </div>
+    </div>
+
+    <script>
+        let countdown = 5;
+        const countdownElement = document.getElementById('countdown');
+
+        const timer = setInterval(() => {
+            countdown--;
+            countdownElement.textContent = countdown;
+
+            if (countdown <= 0) {
+                clearInterval(timer);
+                window.location.href = '${proofAppUrl}';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
+    `);
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({
@@ -228,6 +323,7 @@ initializePortal().then(() => {
         console.log(`🚀 Portal server running on http://localhost:${PORT}`);
         console.log(`🏢 Venue: ${VENUE_ID} | Event: ${EVENT_ID}`);
         console.log(`🔧 Endpoints:`);
+        console.log(`   GET  / - Captive portal landing page`);
         console.log(`   POST /api/issue-nonce - Issue portal nonce`);
         console.log(`   POST /api/submit-proof - Submit ZK proof`);
         console.log(`   GET  /api/health - Health check`);
