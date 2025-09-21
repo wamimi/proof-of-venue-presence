@@ -1,0 +1,6 @@
+[package]
+name = "wifiproof"
+type = "bin"
+authors = [""]
+
+[dependencies]

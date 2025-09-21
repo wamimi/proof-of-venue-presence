@@ -95,18 +95,41 @@ The system generates real cryptographic proofs using Noir circuits and the Barre
 git clone https://github.com/yourusername/wifiproof
 cd wifiproof
 
-# Install dependencies
-pnpm install
+# Install all dependencies (main, portal, and client)
+npm run install:all
 
-# Start the server
-pnpm start
+# Compile the Noir circuit
+nargo compile
 
-# Open http://localhost:3001 in your browser
+# Start the main server (Terminal 1)
+npm start
+
+# Start the portal server (Terminal 2)
+npm run portal
+
+# Open the demos:
+# - Main interface: http://localhost:3001
+# - NoirJS Client: http://localhost:3001/client/noirjs/
 ```
+
+### Captive Portal Demo
+
+The enhanced system now includes a **captive portal simulation** with real cryptographic security:
+
+1. **Portal Server** (`localhost:3002`) - Issues cryptographically signed nonces
+2. **NoirJS Client** - Generates proofs in the browser using portal nonces
+3. **zkVerify Integration** - Submits proofs to zkVerify for on-chain verification
 
 ### Test with Demo Data
 
-The demo comes pre-loaded with realistic test data using current timestamps. When you load the page, it auto-fills with:
+#### NoirJS Client Demo:
+1. Navigate to `http://localhost:3001/client/noirjs/`
+2. Click "🎫 Test Portal Nonce" to verify portal connectivity
+3. Set your time window (defaults: 2 hours ago to 1 hour from now)
+4. Click "🚀 Generate & Submit Proof" for full end-to-end demo
+
+#### Original Server Demo:
+The original interface comes pre-loaded with realistic test data:
 
 ```
 User Secret: 12345
@@ -114,14 +137,50 @@ Connection Nonce: 99999
 Venue ID: 67890
 Network SSID Hash: 111222333444555
 Time Window Start: [2 hours ago] (auto-filled)
-Time Window End: [1 hour from now] (auto-filled)  
+Time Window End: [1 hour from now] (auto-filled)
 Proof Timestamp: [30 minutes ago] (auto-filled)
 ```
 
-This creates a realistic scenario where you're proving you were at a conference that started 2 hours ago, ends in 1 hour, and you generated the proof 30 minutes ago.
+### Testing Commands
+
+Test the portal endpoints directly:
+
+```bash
+# Test nonce issuance (should succeed from localhost)
+curl -X POST http://localhost:3002/api/issue-nonce \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# Test from remote IP (should fail)
+curl -X POST http://localhost:3002/api/issue-nonce \
+  -H "Content-Type: application/json" \
+  -H "X-Forwarded-For: 8.8.8.8" \
+  -d '{}'
+
+# Test proof submission (replace nonce with actual value)
+curl -X POST http://localhost:3002/api/submit-proof \
+  -H "Content-Type: application/json" \
+  -d '{
+    "proof_hex": "0x1234...",
+    "public_inputs_hex": "0x5678...",
+    "vk_hex": "0x9abc...",
+    "portal_nonce": "a1b2c3d4..."
+  }'
+
+# Run the test suite
+npm test
+```
 
 ### How It Works
 
+#### Enhanced Captive Portal Flow:
+1. **Portal Nonce**: Client requests signed nonce from portal server
+2. **Signature Verification**: Browser verifies portal signature using WebCrypto
+3. **Proof Generation**: NoirJS generates ZK proof in browser including portal nonce
+4. **Proof Submission**: Portal validates nonce and forwards to zkVerify
+5. **Privacy Preserved**: User secrets never leave the browser
+
+#### Original Flow:
 1. **Generate Proof**: Click "Generate ZK Proof" in the web interface
 2. **Real Cryptography**: The system uses Noir + Barretenberg to create an actual ZK proof
 3. **Verify Proof**: Use the verification tab to confirm the proof is valid
@@ -139,26 +198,51 @@ The WiFi Connection Proof circuit features:
 
 ```
 wifiproof/
-├── src/main.nr          # Noir circuit logic
+├── src/main.nr          # Enhanced Noir circuit with portal verification
 ├── Prover.toml          # Input data (demo configuration)
-├── index.html           # Web interface  
+├── index.html           # Original web interface
 ├── server.js            # Express.js backend
-├── package.json         # Dependencies
+├── portal/              # NEW: Captive portal server
+│   ├── index.js         # Portal endpoints (nonce issuance & proof submission)
+│   ├── crypto.js        # ECDSA P-256 cryptography utilities
+│   ├── db.js            # SQLite database operations
+│   ├── package.json     # Portal dependencies
+│   └── keys/            # Private key storage (excluded from git)
+├── client/noirjs/       # NEW: Browser-based proof generation
+│   ├── index.html       # NoirJS client interface
+│   ├── proof.js         # Client-side proof generation logic
+│   ├── crypto-utils.js  # WebCrypto signature verification
+│   └── package.json     # NoirJS dependencies
+├── tests/               # NEW: Comprehensive test suite
+│   ├── portal-endpoints.test.js
+│   ├── crypto-utils.test.js
+│   └── integration.test.js
+├── docs/                # NEW: Documentation
+│   └── ROADMAP.md       # TLSNotary integration roadmap
+├── package.json         # Root dependencies
 └── target/              # Generated proofs & circuit artifacts
 ```
 
 ## Privacy Model
 
 **Private Inputs (Hidden):**
-- Your device secret
+- Your device secret (never leaves browser)
 - Connection nonce
 - Exact proof timing
 
 **Public Outputs (Revealed):**
 - Venue ID you're proving presence at
-- Network hash (WiFi identifier)
+- Event ID from portal
+- Portal nonce hash (proves portal interaction)
+- Portal signature hash (prevents forgery)
 - Valid time window for the event
 - Proof nullifier (prevents reuse)
+
+**Enhanced Security:**
+- Portal nonces prevent off-site proof generation
+- ECDSA P-256 signatures ensure portal authenticity
+- Single-use nonces prevent replay attacks
+- Local IP restrictions for nonce issuance
 
 ## Deployment
 
