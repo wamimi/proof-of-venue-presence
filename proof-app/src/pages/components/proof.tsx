@@ -39,7 +39,7 @@ interface CircuitInputs {
 const sha256Hash = async (input: string | Uint8Array): Promise<string> => {
   const encoder = new TextEncoder();
   const data = typeof input === 'string' ? encoder.encode(input) : input;
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data as ArrayBuffer);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer);
   return Array.from(new Uint8Array(hashBuffer))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
@@ -84,20 +84,52 @@ const stringToField = (str: string): string => {
 };
 
 const generateUserSecret = (): string => {
+  const fieldModulus = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
+  
   let secret = localStorage.getItem('wifiproof_user_secret');
+  
+  // Check if existing secret is valid (within field modulus)
+  if (secret) {
+    try {
+      const existingSecret = BigInt('0x' + secret);
+      if (existingSecret >= fieldModulus) {
+        console.warn('Existing user secret exceeds field modulus, regenerating...');
+        secret = null; // Force regeneration
+      }
+    } catch (error) {
+      console.warn('Invalid existing user secret format, regenerating...');
+      secret = null; // Force regeneration  
+    }
+  }
+  
   if (!secret) {
     const secretBytes = new Uint8Array(32);
     crypto.getRandomValues(secretBytes);
-    secret = Array.from(secretBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    const secretHex = Array.from(secretBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    // CRITICAL FIX: Reduce modulo field size to ensure it fits in BN254 field
+    const secretBigInt = BigInt('0x' + secretHex);
+    const reducedSecret = secretBigInt % fieldModulus;
+    
+    // Convert back to hex without 0x prefix
+    secret = reducedSecret.toString(16).padStart(64, '0');
     localStorage.setItem('wifiproof_user_secret', secret);
+    
+    console.log('Generated field-safe user secret:', {
+      original: secretHex,
+      reduced: secret,
+      withinField: reducedSecret < fieldModulus,
+      fieldModulus: fieldModulus.toString(16)
+    });
   }
   return secret;
 };
 
 export default function ProofComponent() {
   // Portal data state
-  const [portalEndpoint, setPortalEndpoint] = useState('http://localhost:3002');
+  const [portalEndpoint, setPortalEndpoint] = useState('http://localhost:3003');
   const [portalNonce, setPortalNonce] = useState<PortalNonceData | null>(null);
+  const [nonceUsed, setNonceUsed] = useState(false); // Track if current nonce has been used
 
   // Time window inputs
   const [timeWindowStart, setTimeWindowStart] = useState('');
@@ -105,6 +137,14 @@ export default function ProofComponent() {
 
   // User secret (auto-generated)
   const [userSecret, setUserSecret] = useState('');
+
+  // Function to regenerate user secret
+  const regenerateUserSecret = () => {
+    localStorage.removeItem('wifiproof_user_secret');
+    const newSecret = generateUserSecret();
+    setUserSecret(newSecret);
+    console.log('User secret regenerated successfully');
+  };
 
   // UI state
   const [isLoading, setIsLoading] = useState(false);
@@ -131,6 +171,7 @@ export default function ProofComponent() {
     try {
       setIsLoading(true);
       setErrorMsg('');
+      setVerificationStatus('');
 
       const response = await fetch(`${portalEndpoint}/api/issue-nonce`, {
         method: 'POST',
@@ -143,7 +184,9 @@ export default function ProofComponent() {
 
       const nonceData = await response.json();
       setPortalNonce(nonceData);
-      setVerificationStatus('Portal nonce received successfully');
+      setNonceUsed(false); // Reset nonce usage state for new nonce
+      setVerificationStatus('Fresh portal nonce received successfully');
+      console.log('🔄 New portal nonce fetched, ready for proof generation');
 
     } catch (error: any) {
       setErrorMsg(`Failed to fetch portal nonce: ${error.message}`);
@@ -155,6 +198,11 @@ export default function ProofComponent() {
   const handleGenerateProof = async () => {
     if (!portalNonce) {
       setErrorMsg('Please fetch portal nonce first');
+      return;
+    }
+
+    if (nonceUsed) {
+      setErrorMsg('⚠️ This nonce has already been used. Please fetch a new nonce before generating another proof.');
       return;
     }
 
@@ -294,9 +342,9 @@ export default function ProofComponent() {
       console.log('Verification key obtained:', { vkLength: vk.length });
 
       const proofData: ProofData = {
-        proof: Array.from(proof) as number[],
-        publicInputs: Array.from(publicInputs) as number[],
-        vk: Array.from(vk) as number[],
+        proof: Array.from(proof),
+        publicInputs: Array.from(publicInputs),
+        vk: Array.from(vk),
         portalNonce: portalNonce.nonce,
         input: input
       };
@@ -329,7 +377,8 @@ export default function ProofComponent() {
       }
 
       console.log('Portal validation successful, nonce marked as used');
-
+      setNonceUsed(true); // Mark nonce as used after successful portal validation
+      
       // Step 6b: Submit to zkVerify via relayer
       setVerificationStatus('Step 6b/6: Submitting to zkVerify...');
       console.log('Submitting proof to zkVerify via relayer API...');
@@ -384,11 +433,22 @@ export default function ProofComponent() {
 
       {/* User Secret Display */}
       <div className="bg-blue-50 p-4 rounded-lg mb-6 w-full max-w-2xl">
-        <p className="text-sm text-blue-800">
-          <strong>Your Device Secret:</strong> {userSecret.substring(0, 16)}...
-          <br />
-          <small>This secret is stored locally and never leaves your browser.</small>
-        </p>
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-sm text-blue-800">
+              <strong>Your Device Secret:</strong> {userSecret.substring(0, 16)}...
+              <br />
+              <small>This secret is stored locally and never leaves your browser.</small>
+            </p>
+          </div>
+          <button
+            onClick={regenerateUserSecret}
+            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
+            title="Regenerate device secret"
+          >
+            Regenerate
+          </button>
+        </div>
       </div>
 
       {/* Portal Configuration */}
@@ -397,7 +457,7 @@ export default function ProofComponent() {
           <label className="block text-sm font-medium text-gray-900 mb-2">Portal Endpoint:</label>
           <input
             type="url"
-            placeholder="http://localhost:3002"
+            placeholder="http://localhost:3003"
             value={portalEndpoint}
             onChange={(e) => setPortalEndpoint(e.target.value)}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
@@ -429,13 +489,23 @@ export default function ProofComponent() {
 
       {/* Portal Nonce Display */}
       {portalNonce && (
-        <div className="bg-green-50 p-4 rounded-lg mb-6 w-full max-w-2xl">
-          <p className="text-sm text-green-800">
+        <div className={`p-4 rounded-lg mb-6 w-full max-w-2xl ${
+          nonceUsed ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'
+        }`}>
+          <p className={`text-sm ${nonceUsed ? 'text-red-800' : 'text-green-800'}`}>
             <strong>Portal Nonce:</strong> {portalNonce.nonce.substring(0, 16)}...
+            {nonceUsed && <span className="ml-2 px-2 py-1 bg-red-200 text-red-900 rounded text-xs">USED</span>}
+            {!nonceUsed && <span className="ml-2 px-2 py-1 bg-green-200 text-green-900 rounded text-xs">READY</span>}
             <br />
             <strong>Venue:</strong> {portalNonce.venue_id} | <strong>Event:</strong> {portalNonce.event_id}
             <br />
             <strong>Issued:</strong> {new Date(portalNonce.ts * 1000).toLocaleString()}
+            {nonceUsed && (
+              <>
+                <br />
+                <small className="text-red-700">⚠️ This nonce has been used. Fetch a new nonce to generate another proof.</small>
+              </>
+            )}
           </p>
         </div>
       )}
@@ -454,12 +524,13 @@ export default function ProofComponent() {
 
         <button
           onClick={handleGenerateProof}
-          disabled={isLoading || !portalNonce}
+          disabled={isLoading || !portalNonce || nonceUsed}
           className={`${
-            isLoading || !portalNonce ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+            isLoading || !portalNonce || nonceUsed ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
           } text-white font-semibold px-6 py-2 rounded-lg`}
+          title={nonceUsed ? 'Nonce already used - fetch a new nonce first' : 'Generate WiFiProof with current nonce'}
         >
-          {isLoading ? 'Generating...' : 'Generate WiFiProof'}
+          {isLoading ? 'Generating...' : nonceUsed ? 'Nonce Used - Fetch New Nonce' : 'Generate WiFiProof'}
         </button>
       </div>
 
