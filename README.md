@@ -2,21 +2,24 @@
 
 **Privacy-preserving proof of attendance using WiFi connection data and Zero-Knowledge cryptography**
 
+> **⚠️ Important**: This is **WiFiProof V1** - a proof-of-concept that demonstrates device-based venue attendance verification. Based on extensive community feedback, we've identified key limitations and are developing **WiFiProof V2** with enhanced security and true proof-of-human-presence. [See V2 Roadmap](#wifiproof-v2-roadmap) for details.
+
 ## Table of Contents
 - [The Problem](#the-problem)
 - [The Solution](#the-solution)
-- [How It Works](#how-it-works)
-- [System Architecture](#system-architecture)
+- [How It Works (V1)](#how-it-works-v1)
+- [V1 Limitations & Community Feedback](#v1-limitations--community-feedback)
+- [System Architecture (V1)](#system-architecture-v1)
+- [WiFiProof V2 Roadmap](#wifiproof-v2-roadmap)
 - [Use Cases](#use-cases)
-- [Quick Start](#quick-start)
+- [Quick Start (V1)](#quick-start-v1)
 - [Complete Setup Guide](#complete-setup-guide)
 - [Configuration](#configuration)
 - [Demo Walkthrough](#demo-walkthrough)
 - [Security Model](#security-model)
 - [Technical Implementation](#technical-implementation)
 - [Database Schema](#database-schema)
-- [Roadmap](#roadmap)
-- [FAQ](#faq)
+- [Enhanced FAQ](#enhanced-faq)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 
@@ -48,33 +51,117 @@ WiFiProof leverages the universal WiFi connection behavior to create **cryptogra
 - **Physical Presence Enforcement**: Portal nonce system ensures on-site generation
 - **Cryptographic Security**: ECDSA signatures and SHA-256 hashing throughout
 
-## How It Works
+## How It Works (V1)
 
-### The WiFiProof Flow
+### The WiFiProof V1 Flow
 
-**Note**: This implementation uses a simulated captive portal for demonstration purposes. In a real-world deployment, this would be integrated with actual venue WiFi infrastructure. I chose the captive portal pattern as it's a familiar UX that most users have encountered when connecting to public WiFi networks.
+**Note**: This implementation uses a simulated captive portal for demonstration purposes. In a real-world deployment, this would be integrated with actual venue WiFi infrastructure.
+
+**What V1 Actually Proves**: "*A device with knowledge of a specific secret accessed the venue's captive portal during a time window*"
+
+**What V1 Does NOT Prove**: "*A unique human was physically present at the venue*"
 
 1. **Venue Setup**: Event organizers deploy a captive portal with cryptographic signing keys
-2. **Attendee Connection**: Users connect to venue WiFi and access the portal
+2. **Device Connection**: Device connects to venue WiFi and accesses the portal
 3. **Nonce Issuance**: Portal issues cryptographically signed nonces (only available on local network)
-4. **Proof Generation**: Users generate Zero-Knowledge proofs in their browser using the portal nonce
-5. **Verification**: Proofs are verified on-chain via zkVerify, proving attendance without revealing identity
+4. **Secret Generation**: Browser generates/retrieves device secret from localStorage
+5. **Proof Generation**: Device generates Zero-Knowledge proofs using portal nonce + device secret
+6. **Verification**: Proofs are verified on-chain via zkVerify
 
 ![Portal Nonce Successfully Fetched](images/nonce-fetch-success.png)
 
 ### What Gets Proven (Public)
-- Venue ID where attendance occurred
-- Event ID and time window
-- Valid portal interaction (proves physical presence)
-- Unique nullifier (prevents proof reuse)
+- **Venue ID** where device accessed portal
+- **Event ID** and time window
+- **Valid portal interaction** (proves network-level presence)
+- **Device secret commitment** (proves knowledge of secret)
+- **Unique nullifier per device secret** (prevents proof reuse with same secret)
 
 ### What Stays Private (Hidden)
-- User's device identity or secrets
-- Exact connection time (only that it was within valid window)
-- Personal data or movement patterns
-- Other venues visited
+- **Device secret value** (stored in localStorage)
+- **Exact connection time** (only that it was within window)
+- **Personal data or movement patterns**
+- **Other venues visited**
 
-## System Architecture
+### ⚠️ V1 Security Assumptions
+- **Single Device**: Assumes one device per person
+- **Secret Protection**: Assumes localStorage is not shared/extracted
+- **Good Faith Usage**: Assumes users don't clear storage to regenerate secrets
+
+## V1 Limitations & Community Feedback
+
+After extensive community feedback and security analysis, we've identified critical limitations in WiFiProof V1:
+
+### 🚨 **Critical Vulnerabilities**
+
+#### **1. Secret Extractability**
+```javascript
+// Problem: localStorage is easily extractable
+localStorage.getItem('wifiproof_user_secret'); // Anyone can copy this
+```
+**Impact**: Users can share their device secrets, allowing remote proof generation
+
+#### **2. Multi-Proof Generation** 
+```javascript
+// Problem: Clear storage = new secret = new proof
+localStorage.clear(); // Generates fresh secret, bypassing nullifiers
+```
+**Impact**: Single user can generate unlimited proofs from same device
+
+#### **3. Multi-Device Exploitation**
+```
+Person A + Device 1 → Proof 1
+Person A + Device 2 → Proof 2  // Same human, different proof
+Person A + Device 3 → Proof 3  // Economic incentive makes this profitable
+```
+**Impact**: One person can generate multiple proofs for airdrops/rewards
+
+#### **4. High-Value Attack Economics**
+When WiFiProof gates valuable rewards (airdrops, exclusive access):
+- **Attack Cost**: $0 (just bring multiple devices)
+- **Attack Reward**: Potentially $100s or $1000s
+- **Result**: Economics heavily favor exploitation
+
+### 💬 **Community Questions Addressed**
+
+**Q: "How are POAPs transferable? I thought they were soulbound?"**
+**A**: Most POAPs are ERC-721 NFTs, inherently transferable unless custom logic makes them soulbound. WiFiProof V1 has similar transferability issues due to extractable secrets.
+
+**Q: "What if I disconnect, clear my browser cache and connect again?"**
+**A**: In V1, yes - you can generate multiple proofs. Each gets a new secret and nullifier, bypassing our replay protection.
+
+**Q: "Why can't I just give someone the proof and the secret?"**
+**A**: You can! localStorage secrets are extractable, making WiFiProof V1 transferable despite being designed otherwise.
+
+**Q: "What if I have multiple devices?"**
+**A**: V1 cannot distinguish between multiple devices from one person vs multiple people. This is a fundamental limitation.
+
+### 🎯 **What V1 Is Actually Good For**
+
+Despite limitations, WiFiProof V1 has valid use cases:
+
+#### **Enterprise/Corporate Scenarios**
+- **Managed devices** with known device policies
+- **Low-stakes verification** where device-level proof suffices
+- **Internal audit trails** where employees aren't incentivized to exploit
+
+#### **Technical Demonstration**
+- **ZK circuit innovation**: Proves ZK venue attendance is technically feasible
+- **Portal nonce system**: Demonstrates cryptographic venue binding
+- **Privacy preservation**: Shows how to hide user data while proving attendance
+
+#### **Research & Development**
+- **Foundation for V2**: Core cryptographic primitives are sound
+- **Community feedback catalyst**: Revealed real-world security requirements
+- **Educational tool**: Demonstrates ZK proof concepts
+
+### 🔍 **Honest Assessment**
+
+**WiFiProof V1 proves**: "*A device with a valid secret accessed this venue portal*"
+
+**For true proof of human presence, we need WiFiProof V2** ↓
+
+## System Architecture (V1)
 
 WiFiProof consists of three main components working together:
 
@@ -126,6 +213,315 @@ WiFiProof consists of three main components working together:
 - Barretenberg Ultra Honk proving system
 - Pedersen hash commitments and nullifiers
 
+## WiFiProof V2 Roadmap
+
+Based on extensive community feedback and security research, WiFiProof V2 will implement a **three-layer security model** that addresses all V1 limitations:
+
+### 🏗️ **V2 Architecture: True Proof of Human Presence**
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           WiFiProof V2 Architecture                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Layer 1: Physical Presence (Single-Use Codes)                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ Venue pre-generates 1000 unique codes → Printed cards at        │   │
+│  │ check-in → Anonymous distribution → One-time redemption only    │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                    ↓                                   │
+│  Layer 2: Device Binding (Secure Enclaves)                            │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ WebAuthn/Passkeys → Hardware-backed keys → Non-extractable     │   │
+│  │ secrets → Device attestation → Cryptographic proof of hardware │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                    ↓                                   │
+│  Layer 3: Human Uniqueness (BrightID)                                 │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │ Social graph verification → Proof of personhood → Sybil         │   │
+│  │ resistance → One proof per unique human verified               │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                    ↓                                   │
+│  Result: Unforgeable Proof of Human Venue Presence                    │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+###  **Layer 1: Physical Presence (Single-Use Codes)**
+
+**Problem Solved**: Remote proof generation, unlimited access attempts
+
+**How It Works**:
+```
+Pre-Event:
+1. Venue generates 1000 unique codes offline: ["WP24-A1B2", "WP24-C3D4", ...]
+2. Codes printed on tamper-evident cards (QR codes + text)
+3. Distributed at physical check-in (no tracking of who gets what)
+4. Each code can only be redeemed once across entire system
+
+At Venue:
+5. User connects to WiFi → Captive portal requests access code
+6. User enters: "WP24-A1B2" 
+7. Portal validates code is unused → Marks as consumed
+8. Issues cryptographic nonce tied to redeemed code
+```
+
+**Security Properties**:
+- **Finite Supply**: Only 1000 proofs possible per event (vs unlimited in V1)
+- **Physical Distribution**: Must be present to receive code
+- **Anonymous Usage**: No tracking of code→person mapping (privacy preserved)
+- **Tamper Evidence**: Physical codes harder to duplicate than digital secrets
+
+**Privacy**: Anonymity set of 1000 - each proof is indistinguishable among all possible codes
+
+###  **Layer 2: Device Binding (Secure Enclaves)**
+
+**Problem Solved**: Secret extractability, secret sharing, multi-device exploitation
+
+**Technologies**:
+- **WebAuthn/Passkeys**: Browser standard for hardware authentication
+- **Apple Secure Enclave**: A9+ chips (iPhone 6s+, MacBook Pro 2016+)
+- **Android Secure Element**: Pixel 3+, Samsung Galaxy S8+
+- **Hardware Security Modules**: Dedicated cryptographic processors
+
+**How It Works**:
+```javascript
+// V2: Hardware-backed key generation
+const credential = await navigator.credentials.create({
+  publicKey: {
+    challenge: venueNonce,
+    rp: { name: "WiFiProof V2" },
+    user: { id: userID, name: "anonymous" },
+    authenticatorSelection: {
+      authenticatorAttachment: "platform", // Forces secure enclave
+      userVerification: "required"
+    },
+    attestation: "direct" // Proves genuine hardware
+  }
+});
+
+// V2: Hardware-backed proof signing
+const proofSignature = await navigator.credentials.get({
+  publicKey: {
+    challenge: combinedCodeAndNonce,
+    allowCredentials: [{ type: "public-key", id: credential.rawId }]
+  }
+});
+
+// Keys NEVER leave secure enclave  impossible to extract or share
+```
+
+**Security Properties**:
+- **Non-Extractable Keys**: Private keys physically cannot leave hardware
+- **Hardware Attestation**: Cryptographic proof operations happened in genuine secure enclave
+- **Biometric Binding**: Face ID/Touch ID ensures human presence for key usage
+- **Device Persistence**: Keys survive app deletion, browser clearing, etc.
+
+### 👥 **Layer 3: Human Uniqueness (BrightID)**
+
+**Problem Solved**: Multi-device exploitation, one-person-many-proofs attacks
+
+**BrightID Overview**:
+- **Decentralized Identity Network**: Social graph-based uniqueness verification
+- **Privacy-First**: No PII required - uses social connections for verification
+- **Sybil Resistant**: AI algorithms detect fake/duplicate identities
+- **Open Source**: Transparent, community-governed verification process
+
+**Verification Levels**:
+1. **Meets**: Basic verification from attending BrightID "connection parties"
+2. **Aura**: Higher confidence through multiple trusted connections  
+3. **Bitu**: Strongest verification through extensive social graph analysis
+
+**How It Works**:
+```javascript
+// V2: BrightID Integration
+const brightIDStatus = await brightid.getVerifications(userAddress);
+
+if (brightIDStatus.meets && brightIDStatus.aura) {
+  // Verified unique human - allow proof generation
+  allowProofGeneration();
+} else {
+  // Not verified - redirect to BrightID flow
+  window.open('https://brightid.org/verification');
+}
+```
+
+**Social Graph Analysis**:
+```
+User A connects to: [User B, User C, User D] (real people, in-person QR scans)
+User E connects to: [User F, User G, User H] (different social cluster)
+User X connects to: [Bot1, Bot2, Bot3] (detected as fake - no real connections)
+```
+
+**Security Properties**:
+- **One Identity Per Human**: Social graph analysis prevents multiple accounts
+- **Connection Parties**: Must attend physical events to build verification
+- **Time-Based Verification**: Real relationships develop over time; fake ones don't
+- **Community Governance**: Decentralized moderation prevents gaming
+
+### **V2 Complete User Flow**
+
+```
+Pre-Verification (One-time setup):
+1. User attends BrightID connection party
+2. Scans QR codes of real people → Builds social graph
+3. Achieves "Meets" + "Aura" verification status
+4. Sets up WebAuthn passkey on their device
+
+Event Attendance:
+5. User receives physical code at venue: "WP24-X7Y9"
+6. Connects to venue WiFi → Captive portal
+7. System checks BrightID verification status ✓
+8. User enters single-use code → Portal validates & marks used ✓
+9. Portal issues cryptographic nonce
+10. WebAuthn prompts for biometric (Face ID/Touch ID) ✓
+11. Secure enclave signs (code_hash + nonce + timestamp)
+12. ZK circuit proves: "Verified unique human + Valid unused code + Hardware signature"
+13. Proof submitted to blockchain with nullifier preventing reuse
+
+Result: Cryptographic proof that a verified unique human was physically 
+present at the venue, impossible to forge, share, or duplicate.
+```
+
+###  **V2 Security Analysis**
+
+| Attack Vector | V1 Vulnerability | V2 Protection |
+|---------------|------------------|---------------|
+| **Secret Sharing** | localStorage extractable | Hardware-backed keys (impossible to extract) |
+| **Multi-Device** | One person → Many devices | BrightID ensures one proof per human |
+| **Secret Reset** | Clear storage → New secret | Hardware keys persist, BrightID prevents new accounts |
+| **Remote Generation** | Only WiFi check | Physical code distribution required |
+| **Replay Attacks** | Nonce reuse possible | Single-use codes + Hardware signatures |
+| **Sybil Attacks** | No human verification | BrightID social graph analysis |
+| **Economic Attacks** | $0 cost, $1000s reward | Multiple barriers increase attack cost significantly |
+
+###  **V2 Implementation Phases**
+
+#### **Phase 1: Enhanced Device Security
+```
+┌─────────────────────────────────────┐
+│ WebAuthn Integration                │
+├─────────────────────────────────────┤
+│ ✓ Passkey support for modern devices │
+│ ✓ Secure enclave key generation      │
+│ ✓ Hardware attestation verification  │
+│ ✓ Fallback to V1 for older devices   │
+└─────────────────────────────────────┘
+```
+
+**Deliverables**:
+- WebAuthn integration in proof client
+- Hardware-backed key generation and storage
+- Biometric authentication for proof generation
+- Device compatibility detection and graceful fallbacks
+
+#### **Phase 2: BrightID Integration 
+```
+┌─────────────────────────────────────┐
+│ Human Uniqueness Verification       │
+├─────────────────────────────────────┤
+│ ✓ BrightID API integration           │
+│ ✓ Social graph verification checks   │
+│ ✓ Verification level requirements    │
+│ ✓ User onboarding flow design        │
+└─────────────────────────────────────┘
+```
+
+**Deliverables**:
+- BrightID SDK integration
+- Verification status checking
+- User-friendly onboarding for BrightID setup
+- Partnership with BrightID for verification events
+
+#### **Phase 3: Single-Use Code System 
+```
+┌─────────────────────────────────────┐
+│ Physical Presence Verification      │
+├─────────────────────────────────────┤
+│ ✓ Secure code generation system      │
+│ ✓ Physical distribution workflow     │
+│ ✓ QR code + text backup formats     │
+│ ✓ Venue integration partnerships     │
+└─────────────────────────────────────┘
+```
+
+**Deliverables**:
+- Offline code generation tools
+- Tamper-evident printing guidelines
+- Event organizer documentation
+- Integration with major event platforms
+
+#### **Phase 4: Production Deployment 
+```
+┌─────────────────────────────────────┐
+│ Enterprise-Ready V2 System          │
+├─────────────────────────────────────┤
+│ ✓ Multi-venue support               │
+│ ✓ Scalable infrastructure           │
+│ ✓ Analytics and monitoring          │
+│ ✓ Compliance and audit tools        │
+└─────────────────────────────────────┘
+```
+
+**Deliverables**:
+- Cloud infrastructure for enterprise deployment
+- Multi-venue management dashboard
+- Real-time analytics and fraud detection
+- SOC2 compliance and security audits
+
+###  **V2 Value Proposition**
+
+**WiFiProof V2 Will Prove**: "*A verified unique human was physically present at this venue during this time window*"
+
+**Unforgeable Because**:
+- **Physical codes** prevent remote generation
+- **Secure enclaves** prevent key extraction/sharing  
+- **BrightID verification** prevents multi-human exploitation
+- **ZK proofs** maintain privacy while proving attendance
+
+**Use Cases Unlocked by V2**:
+- **High-Value Airdrops**: Safe to distribute valuable tokens based on attendance
+- **Exclusive Access**: Gate Discord/Telegram channels to verified attendees
+- **NFT Minting**: Provably scarce attendance-based NFTs
+- **DAO Governance**: Attendance-weighted voting for event-based DAOs
+- **Academic Credit**: Verifiable attendance for courses and conferences
+- **Corporate Compliance**: Audit-ready attendance records with privacy
+
+### 🔬 **Research & Advanced Features**
+
+#### **ZK-TLS Integration (Future)**
+Move beyond simulated portals to cryptographic proof of actual TLS sessions:
+
+```
+Traditional: "Trust me, they connected to venue WiFi"
+ZK-TLS: "Here's cryptographic proof they had a TLS session with venue server"
+```
+
+#### **Cross-Chain Verification**
+Submit proofs to multiple blockchains for maximum composability:
+- Ethereum for DeFi integrations
+- Polygon for low-cost verification
+- Arbitrum for L2 scalability
+- zkSync for native ZK-proof verification
+
+#### **Batch Proofs**
+Generate a single proof covering multiple venue visits:
+```javascript
+// Prove attendance at 5 conferences with one ZK proof
+const batchProof = generateBatchProof([
+  venue1_attendance, venue2_attendance, venue3_attendance, 
+  venue4_attendance, venue5_attendance
+]);
+```
+
+###  **Community & Partnerships**
+
+**BrightID Partnership**: Deep integration for seamless verification flows
+**Event Platforms**: Eventbrite, Meetup, conference organizers
+**Hardware Vendors**: Apple, Google, Yubico for optimal secure enclave support
+**Academic Institutions**: Research partnerships for privacy-preserving analytics
+
+The V2 roadmap addresses every limitation identified in community feedback while maintaining WiFiProof's core privacy guarantees. This represents a fundamental leap from device-based to human-based venue attendance verification.
+
 ## Use Cases
 
 ### Blockchain & Crypto Events
@@ -152,9 +548,11 @@ WiFiProof consists of three main components working together:
 - **Sports Events**: Season ticket holder verification
 - **Exclusive Venues**: Member-only location access proof
 
-## Quick Start
+## Quick Start (V1)
 
-Get WiFiProof running in under 5 minutes:
+Get WiFiProof V1 running in under 5 minutes:
+
+> **Note**: This is the V1 implementation with known limitations. See [V1 Limitations](#v1-limitations--community-feedback) for details and [V2 Roadmap](#wifiproof-v2-roadmap) for upcoming improvements.
 
 ### Prerequisites
 ```bash
@@ -467,114 +865,115 @@ SELECT * FROM nonces WHERE used = 1 ORDER BY used_at DESC;
 
 This shows successful proof submissions with timing data proving the security model works correctly.
 
-## Roadmap
+---
 
-### Phase 1: Enhanced Security
-- **Hardware Security Modules**: Replace file-based key storage with HSM integration
-- **Rate Limiting**: Add DoS protection for portal endpoints
-- **TLS/HTTPS**: Encrypt all communications in production
-- **Audit Logging**: Comprehensive security event logging
-- **Multi-Venue Support**: Portal federation and key management
+> **📋 For detailed V2 roadmap including secure enclaves, BrightID integration, single-use codes, and implementation phases, see [WiFiProof V2 Roadmap](#wifiproof-v2-roadmap) above.**
 
-### Phase 2: TLSNotary Integration 
-- **Real TLS Proofs**: Replace simulated portal with actual TLS session proofs
-- **WiFi Traffic Validation**: Prove actual network traffic occurred
-- **Deep Packet Inspection Resistance**: Encrypted proof generation
-- **Mobile Integration**: Native iOS/Android apps with WiFi scanning
-- **Hardware Wallet Support**: Secure key storage on mobile devices
+## Enhanced FAQ
 
-### Phase 3: Production Infrastructure 
-- **Cloud Deployment**: Kubernetes-based scalable architecture
-- **Enterprise API**: Venue onboarding and management platform
-- **Analytics Dashboard**: Real-time attendance metrics and insights
-- **Integration SDKs**: Easy integration for event management platforms
-- **Compliance Certifications**: SOC2, GDPR, CCPA compliance
+### V1 vs V2 Questions
 
-### Phase 4: Advanced Features 
-- **Batch Proofs**: Multiple venue attestations in single proof
-- **Selective Disclosure**: Choose what information to reveal
-- **Cross-Chain Support**: Deploy to multiple blockchain networks
-- **Anonymous Credentials**: Long-term pseudonymous identity system
-- **Machine Learning**: Anomaly detection for fraud prevention
+**Q: How are POAPs transferable? I thought they were soulbound?**
+**A**: Most POAPs are ERC-721 NFTs, inherently transferable unless custom logic makes them soulbound. WiFiProof V1 has similar transferability issues due to extractable localStorage secrets. **V2 Solution**: Hardware-backed keys that cannot be extracted or shared.
 
-### Phase 5: Ecosystem Expansion
-- **DeFi Integration**: Attendance-gated liquidity pools and yields
-- **NFT Marketplaces**: Verified attendance-based NFT collections
-- **DAO Governance**: Attendance-weighted voting systems
-- **Academic Research**: Privacy-preserving location analytics
-- **Government Adoption**: Transparent yet private civic engagement
+**Q: What if I disconnect, clear my browser cache and connect again? Won't I get another proof?**
+**A (V1)**: Yes, clearing localStorage generates a new secret and bypasses nullifiers, allowing multiple proofs.
+**A (V2)**: Hardware keys persist through cache clearing, and BrightID ensures one proof per verified human regardless of device manipulations.
 
-## FAQ
+**Q: Why can't I just give someone the proof and the secret?**
+**A (V1)**: You can! localStorage secrets are extractable, making proofs transferable despite being designed otherwise.
+**A (V2)**: Secure enclave keys physically cannot be extracted. Even with device access, biometric authentication (Face ID/Touch ID) is required.
 
-### General Questions
+**Q: What if I have multiple devices?**
+**A (V1)**: V1 cannot distinguish between multiple devices from one person vs multiple people. This is a fundamental limitation.
+**A (V2)**: BrightID social graph verification ensures one proof per unique human, regardless of how many devices they own.
+
+**Q: Can someone share their nonce with others?**
+**A (V1)**: While nonces could be shared, they're bound to device secrets. However, since secrets are extractable, this doesn't provide real protection.
+**A (V2)**: Even if nonces are shared, the proof requires: (1) Valid single-use code (physical distribution), (2) Hardware signature (non-extractable), (3) BrightID verification (social graph). All three cannot be easily shared.
+
+### Security & Technical Questions
 
 **Q: How does WiFiProof differ from existing attendance systems?**
-A: Unlike traditional systems that either compromise privacy (surveillance) or lack security (sign-in sheets), WiFiProof uses Zero-Knowledge cryptography to prove attendance without revealing personal information. The proof is cryptographically unforgeable while keeping user identity completely private.
+**A**: Traditional systems either compromise privacy (surveillance) or lack security (sign-in sheets). WiFiProof uses Zero-Knowledge cryptography to prove attendance without revealing identity. V1 proves device presence; V2 proves unique human presence.
 
 **Q: Can someone generate a proof without being physically present?**
-A: No. The portal nonce system ensures proofs can only be generated by devices connected to the venue's local network. The portal server only issues nonces to local IP addresses, and each nonce can only be used once.
-
-**Q: What prevents someone from sharing their nonce with others?**
-A: While nonces could theoretically be shared, they expire quickly and are bound to the user's device secret. The proof includes a commitment to the user's private secret, so sharing would require giving away device access. Additionally, time windows prevent delayed proof generation.
+**A (V1)**: The portal nonce system requires local network access, but secrets can be shared for remote generation.
+**A (V2)**: Three barriers prevent remote generation: (1) Physical single-use codes, (2) Hardware-backed device signatures, (3) BrightID social verification.
 
 **Q: Is this a real blockchain application or just a simulation?**
-A: WiFiProof generates real Zero-Knowledge proofs using production-grade cryptography (Noir + Barretenberg) and submits them to actual blockchain networks via zkVerify. The proofs are cryptographically verified on-chain and provide genuine mathematical proof of attendance.
+**A**: WiFiProof generates real Zero-Knowledge proofs using production-grade cryptography (Noir + Barretenberg) and submits to actual blockchain networks via zkVerify. The mathematical proofs are genuine and verifiable.
 
-### Technical Questions
+**Q: What exactly does the proof prove?**
+**A (V1)**: "A device with knowledge of a specific secret accessed the venue's captive portal during a time window"
+**A (V2)**: "A verified unique human was physically present at this venue during this time window"
 
 **Q: How long does proof generation take?**
-A: Proof generation typically takes 30 seconds to 2 minutes depending on device performance. The circuit is optimized with only 36 ACIR opcodes, making it one of the most efficient attendance proof systems available.
+**A**: 30 seconds to 2 minutes depending on device performance. The circuit uses only 36 ACIR opcodes, making it highly efficient. V2 adds biometric prompts but maintains similar generation times.
 
 **Q: What data is stored on the blockchain?**
-A: Only the Zero-Knowledge proof and public inputs are stored on-chain: venue ID, event ID, time window, and proof nullifier. No personal information, device identifiers, or user secrets are ever recorded on the blockchain.
+**A**: Only Zero-Knowledge proof and public inputs: venue ID, event ID, time window, proof nullifier. No personal information, device identifiers, or secrets are ever recorded on-chain.
 
 **Q: Can venue operators see who attended their events?**
-A: No. Venue operators can see that valid proofs were generated for their events, but cannot correlate proofs to specific individuals. The Zero-Knowledge property ensures complete attendee privacy while providing venues with aggregate attendance statistics.
+**A**: No. Venues see that valid proofs were generated but cannot correlate proofs to individuals. V2's anonymous code distribution further enhances privacy with k-anonymity among all distributed codes.
 
-**Q: What happens if I lose my device or browser data?**
-A: Each proof is self-contained and doesn't depend on persistent device state. Your user secret is generated fresh for each session. If you need to prove attendance later, you would need to have saved the generated proof data.
+### V2 Implementation Questions
 
-**Q: How does this work with corporate/enterprise WiFi networks?**
-A: The system can be adapted for enterprise networks by deploying the portal server within the corporate network infrastructure. The same security principles apply: only devices connected to the internal network can request nonces.
+**Q: When will V2 be available?**
+**A**: Phased rollout: WebAuthn integration (Q2 2024), BrightID integration (Q3 2024), Single-use codes (Q4 2024), Production deployment (Q1 2025).
 
-### Security Questions
+**Q: What devices support V2's secure enclaves?**
+**A**: 
+- **iOS**: iPhone 6s+ (A9+ chips), iPads with Touch ID/Face ID
+- **Android**: Pixel 3+, Samsung Galaxy S8+, devices with secure elements
+- **Desktop**: MacBook Pro 2016+ (T1/T2/M1 chips), Windows Hello devices
+- **Fallback**: V1 mode for older devices during transition
 
-**Q: What if the venue's private keys are compromised?**
-A: If venue keys are compromised, an attacker could issue fake nonces for that specific venue. However, they still couldn't retroactively forge historical proofs or impersonate users. The system includes key rotation capabilities and HSM integration is planned for production deployments.
+**Q: How does BrightID verification work?**
+**A**: Users attend "connection parties" where they scan QR codes of real people in person. Social graph analysis detects unique humans vs fake accounts. Requires building real relationships over time - cannot be gamed quickly.
 
-**Q: Can someone analyze my proof to learn personal information?**
-A: No. Zero-Knowledge proofs mathematically guarantee that no information beyond the intended claims (venue, time window) can be extracted. The proof reveals nothing about your device, other venues visited, or personal identity.
+**Q: What if someone distributes multiple single-use codes to friends?**
+**A**: This requires corrupting the physical distribution process and still only provides the number of extra codes given. The anonymity set remains intact (no tracking of who got which code), and it requires venue staff collaboration.
 
-**Q: What prevents replay attacks or proof reuse?**
-A: Each proof includes a unique nullifier generated from your device secret and venue information. The portal database tracks used nonces, and the blockchain can verify nullifier uniqueness. Once a proof is submitted, it cannot be reused.
+**Q: How does V2 handle users without BrightID verification?**
+**A**: Onboarding flow guides users to BrightID verification. We're partnering with BrightID to host "connection parties" at major events. Alternative: trusted venue staff can provide manual verification for small events.
 
-**Q: Is the system vulnerable to network-level attacks?**
-A: The current version assumes trusted local network connectivity. Future versions with TLSNotary integration will provide cryptographic proof of actual network traffic, making the system resistant to network-level manipulation.
+### Usage & Business Questions
 
-### Usage Questions
+**Q: Can this be used for high-value airdrops?**
+**A (V1)**: Not recommended due to exploitation economics.
+**A (V2)**: Yes! Multiple security layers make exploitation cost-prohibitive while maintaining true proof of unique human presence.
 
-**Q: Can this be used for remote/virtual events?**
-A: The current system is designed for physical venue attendance. For virtual events, alternative proof mechanisms (like video call participation proofs) would be more appropriate. However, the same ZK architecture could be adapted for virtual attendance verification.
+**Q: How much does deployment cost?**
+**A**: 
+- **V1**: Server hosting (~$20/month) + zkVerify fees (~$0.01/proof)
+- **V2**: Add single-use code printing costs (~$0.10/attendee for tamper-evident cards)
 
-**Q: How do users know their proofs are valid?**
-A: The system provides real-time verification through zkVerify blockchain integration. Users receive transaction hashes that can be independently verified on blockchain explorers. The cryptographic proofs are mathematically verifiable by anyone.
+**Q: Can this scale to large events?**
+**A**: Yes. Portal servers handle high concurrency, proof generation is client-side, and the system can deploy multiple instances. V2's offline code generation supports any event size.
 
-**Q: Can this integrate with existing event management platforms?**
-A: Yes. WiFiProof provides REST APIs and can be integrated into existing systems. Event organizers can embed the proof generation into their existing registration flows or mobile apps.
+**Q: What's the business model for venues?**
+**A**: Venues get verifiable attendance data for sponsors, reduced fraud in loyalty programs, and privacy compliance. V2 enables new models: attendance-gated tokens, exclusive access rights, sponsor verification dashboards.
+
+**Q: How does this work with corporate/enterprise WiFi?**
+**A**: Deploy portal server within corporate network. Same security principles apply. V2's device binding particularly valuable for managed corporate device environments.
 
 **Q: What devices/browsers are supported?**
-A: Any modern browser with WebCrypto API support can generate proofs. This includes Chrome, Firefox, Safari, and Edge on both desktop and mobile. No special software installation is required for attendees.
+**A**: Any modern browser with WebCrypto API: Chrome, Firefox, Safari, Edge on desktop and mobile. V2 requires WebAuthn support (available in all modern browsers since 2019).
 
-### Business Questions
+### Privacy & Compliance Questions
 
-**Q: How much does it cost to deploy WiFiProof?**
-A: The core system is open source and free to use. Deployment costs include server hosting (minimal for portal server) and zkVerify transaction fees for blockchain verification (typically a few cents per proof).
+**Q: Is this GDPR compliant?**
+**A**: Yes. No personal data is collected or stored. Users generate proofs locally, and only mathematical commitments are recorded. V2's BrightID integration maintains GDPR compliance through pseudonymous verification.
 
-**Q: Can this scale to large events with thousands of attendees?**
-A: Yes. The portal server is designed for high concurrency, and proof generation happens client-side so it scales horizontally. The SQLite database can handle thousands of nonces, and the system can be deployed with multiple portal instances for very large events.
+**Q: Can governments track users through WiFiProof?**
+**A**: No. The system is designed for complete unlinkability. Even with full blockchain access, proofs cannot be correlated to individuals. V2's anonymous code distribution adds additional privacy layers.
 
-**Q: What's the business model for venues adopting this?**
-A: Venues benefit from verifiable attendance data for sponsors, reduced fraud in loyalty programs, and enhanced privacy compliance. The system can also enable new revenue models like attendance-gated token distributions or exclusive member benefits.
+**Q: What happens if BrightID is compromised?**
+**A**: V2 includes fallback verification methods and can operate with alternative proof-of-personhood systems. The modular architecture allows swapping verification layers without affecting core ZK proof system.
+
+**Q: How does this compare to other identity systems?**
+**A**: Unlike centralized systems, WiFiProof maintains user privacy while providing cryptographic proof. V2's combination of hardware security + social verification + physical presence creates a unique security model not available in existing systems.
 
 ## Troubleshooting
 
@@ -696,6 +1095,37 @@ WiFiProof is released under the MIT License.
 
 ---
 
-**Built with Noir • Powered by Barretenberg • Privacy First**
+## Conclusion
 
-*For questions, support, or collaboration opportunities, please open an issue on GitHub *
+WiFiProof represents an evolution in attendance verification systems:
+
+**V1: Proof of Concept**
+- Demonstrates ZK venue attendance is technically feasible
+- Shows how to preserve privacy while proving portal access
+- Reveals real-world security requirements through community feedback
+- Suitable for enterprise environments and low-stakes verification
+
+**V2: Production System**  
+- Addresses all identified security vulnerabilities
+- Implements true proof of unique human presence
+- Combines cutting-edge technologies: Secure Enclaves + BrightID + ZK Proofs
+- Enables high-value use cases like airdrops and exclusive access
+
+**Impact**
+The journey from V1 to V2 showcases how community feedback drives innovation. What started as device-based attendance tracking evolved into a comprehensive human presence verification system that maintains privacy while preventing exploitation.
+
+**Community-Driven Development**
+Special thanks to [Václav Pavlín](https://x.com/vpavlin) and the broader crypto community for critical security analysis that shaped V2's design. This project demonstrates the power of open-source collaboration in building robust privacy-preserving systems.
+
+**Future Vision**  
+WiFiProof V2 will enable a new category of applications requiring cryptographic proof of human physical presence while maintaining complete privacy. From attendance-gated DAOs to privacy-preserving analytics, the possibilities are endless.
+
+---
+
+**V1: Built with Noir • Powered by Barretenberg • Privacy First**
+
+**V2: + Secure Enclaves + BrightID + True Human Verification**
+
+ For questions, support, collaboration opportunities, or to join the V2 development effort, please open an issue on GitHub
+
+Ready to help build the future of privacy-preserving attendance verification? We'd love your contributions to make V2 a reality!
