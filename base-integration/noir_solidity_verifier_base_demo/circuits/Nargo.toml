@@ -1,0 +1,9 @@
+[package]
+name = "noir_solidity_verifier_demo"       
+type = "bin"
+authors = [""]
+compiler_version = ">=1.0.0"
+
+[dependencies]
+
+
