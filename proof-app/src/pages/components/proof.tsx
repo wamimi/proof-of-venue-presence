@@ -127,7 +127,7 @@ const generateUserSecret = (): string => {
 
 export default function ProofComponent() {
   // Portal data state
-  const [portalEndpoint, setPortalEndpoint] = useState('http://localhost:3003');
+  const [portalEndpoint, setPortalEndpoint] = useState('http://localhost:3002');
   const [portalNonce, setPortalNonce] = useState<PortalNonceData | null>(null);
   const [nonceUsed, setNonceUsed] = useState(false); // Track if current nonce has been used
 
@@ -457,7 +457,7 @@ export default function ProofComponent() {
           <label className="block text-sm font-medium text-gray-900 mb-2">Portal Endpoint:</label>
           <input
             type="url"
-            placeholder="http://localhost:3003"
+            placeholder="http://localhost:3002"
             value={portalEndpoint}
             onChange={(e) => setPortalEndpoint(e.target.value)}
             className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 bg-white"
