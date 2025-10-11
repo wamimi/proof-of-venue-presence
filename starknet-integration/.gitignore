@@ -1,0 +1,7 @@
+node_modules
+dist
+target
+build
+.secrets
+accounts.json
+garaga-venv
