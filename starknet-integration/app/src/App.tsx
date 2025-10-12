@@ -14,13 +14,104 @@ import initACVM from "@noir-lang/acvm_js";
 import acvm from "@noir-lang/acvm_js/web/acvm_js_bg.wasm?url";
 import noirc from "@noir-lang/noirc_abi/web/noirc_abi_wasm_bg.wasm?url";
 
+// WiFiProof types
+interface PortalNonceData {
+  venue_id: string;
+  event_id: string;
+  nonce: string;
+  ts: number;
+  signature: string;
+  venue_pubkey_jwk: any;
+}
+
+interface CircuitInputs {
+  user_secret: string;
+  connection_nonce: string;
+  venue_id: string;
+  event_id: string;
+  nonce_hash: string;
+  portal_sig_hash: string;
+  time_window_start: number;
+  time_window_end: number;
+  proof_timestamp: number;
+}
+
+// Crypto utilities for WiFiProof
+const sha256Hash = async (input: string | Uint8Array): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = typeof input === 'string' ? encoder.encode(input) : input;
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+const hashToField = (hash: string): string => {
+  const cleanHash = hash.replace(/^0x/, '');
+  const fieldModulus = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
+  const hashBigInt = BigInt('0x' + cleanHash);
+  let fieldValue = hashBigInt % fieldModulus;
+  if (fieldValue === BigInt(0)) {
+    fieldValue = BigInt(1);
+    console.warn('Hash reduced to zero, using fallback value 1');
+  }
+  return fieldValue.toString();
+};
+
+const stringToField = (str: string): string => {
+  const numericPart = str.replace(/[^0-9]/g, '');
+  if (!numericPart) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString();
+  }
+  return numericPart;
+};
+
+const generateUserSecret = (): string => {
+  const fieldModulus = BigInt('21888242871839275222246405745257275088548364400416034343698204186575808495617');
+  let secret = localStorage.getItem('wifiproof_user_secret');
+  if (secret) {
+    try {
+      const existingSecret = BigInt('0x' + secret);
+      if (existingSecret >= fieldModulus) {
+        secret = null;
+      }
+    } catch {
+      secret = null;
+    }
+  }
+  if (!secret) {
+    const randomBytes = new Uint8Array(32);
+    crypto.getRandomValues(randomBytes);
+    let secretBigInt = BigInt(0);
+    for (let i = 0; i < 32; i++) {
+      secretBigInt = (secretBigInt << BigInt(8)) | BigInt(randomBytes[i]);
+    }
+    secretBigInt = secretBigInt % fieldModulus;
+    secret = secretBigInt.toString(16).padStart(64, '0');
+    localStorage.setItem('wifiproof_user_secret', secret);
+  }
+  return secret;
+};
+
 function App() {
   const [proofState, setProofState] = useState<ProofStateData>({
     state: ProofState.Initial
   });
   const [vk, setVk] = useState<Uint8Array | null>(null);
-  const [inputX, setInputX] = useState<number>(5);
-  const [inputY, setInputY] = useState<number>(10);
+
+  // WiFiProof state
+  const [portalEndpoint, setPortalEndpoint] = useState('http://localhost:3002');
+  const [portalNonce, setPortalNonce] = useState<PortalNonceData | null>(null);
+  const [timeWindowStart, setTimeWindowStart] = useState('');
+  const [timeWindowEnd, setTimeWindowEnd] = useState('');
+  const [userSecret] = useState<string>(() => generateUserSecret());
+
   // Use a ref to reliably track the current state across asynchronous operations
   const currentStateRef = useRef<ProofState>(ProofState.Initial);
 
@@ -53,10 +144,13 @@ function App() {
 
   const resetState = () => {
     currentStateRef.current = ProofState.Initial;
-    setProofState({ 
+    setProofState({
       state: ProofState.Initial,
-      error: undefined 
+      error: undefined
     });
+    setPortalNonce(null);
+    setTimeWindowStart('');
+    setTimeWindowEnd('');
   };
 
   const handleError = (error: unknown) => {
@@ -88,18 +182,71 @@ function App() {
     setProofState({ state: newState, error: undefined });
   };
 
+  const fetchPortalNonce = async () => {
+    try {
+      const response = await fetch(`${portalEndpoint}/api/issue-nonce`);
+      if (!response.ok) {
+        throw new Error(`Portal returned ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      setPortalNonce(data);
+      console.log('Portal nonce fetched:', data);
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  };
+
   const startProcess = async () => {
     try {
+      // Validate inputs
+      if (!portalNonce) {
+        throw new Error('Please fetch portal nonce first');
+      }
+      if (!timeWindowStart || !timeWindowEnd) {
+        throw new Error('Please set time window');
+      }
+
       // Start the process
       updateState(ProofState.GeneratingWitness);
-      
-      // Use input values from state
-      const input = { x: inputX, y: inputY };
-      
+
+      // Prepare WiFiProof circuit inputs
+      const proofTimestamp = Math.floor(Date.now() / 1000);
+      const connectionNonce = Math.floor(Math.random() * 1000000);
+
+      // Hash portal data and convert to field-safe values
+      const nonceHash = await sha256Hash(portalNonce.nonce);
+      const portalSigHash = await sha256Hash(portalNonce.signature);
+
+      const nonceHashField = hashToField(nonceHash);
+      const portalSigHashField = hashToField(portalSigHash);
+
+      // Convert time window to Unix timestamps
+      const timeWindowStartTs = Math.floor(new Date(timeWindowStart).getTime() / 1000);
+      const timeWindowEndTs = Math.floor(new Date(timeWindowEnd).getTime() / 1000);
+
+      // Convert portal string IDs to numeric fields
+      const venueIdField = stringToField(portalNonce.venue_id);
+      const eventIdField = stringToField(portalNonce.event_id);
+
+      const input: CircuitInputs = {
+        user_secret: `0x${userSecret}`,
+        connection_nonce: connectionNonce.toString(),
+        venue_id: venueIdField,
+        event_id: eventIdField,
+        nonce_hash: nonceHashField,
+        portal_sig_hash: portalSigHashField,
+        time_window_start: timeWindowStartTs,
+        time_window_end: timeWindowEndTs,
+        proof_timestamp: proofTimestamp
+      };
+
+      console.log('WiFiProof Circuit Inputs:', input);
+
       // Generate witness
       let noir = new Noir({ bytecode, abi: abi as any });
       let execResult = await noir.execute(input);
-      console.log(execResult);
+      console.log('Witness generated:', execResult);
       
       // Generate proof
       updateState(ProofState.GeneratingProof);
@@ -182,35 +329,64 @@ function App() {
 
   return (
     <div className="container">
-      <h1>Noir Proof Generation & Starknet Verification</h1>
-      
+      <h1>WiFiProof: Starknet Venue Attendance Verification</h1>
+
       <div className="state-machine">
         <div className="input-section">
           <div className="input-group">
-            <label htmlFor="input-x">X:</label>
-            <input 
-              id="input-x"
-              type="text" 
-              value={inputX} 
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setInputX(isNaN(value) ? 0 : value);
-              }} 
+            <label htmlFor="portal-endpoint">Portal Endpoint:</label>
+            <input
+              id="portal-endpoint"
+              type="text"
+              value={portalEndpoint}
+              onChange={(e) => setPortalEndpoint(e.target.value)}
+              disabled={proofState.state !== ProofState.Initial}
+              placeholder="http://localhost:3002"
+            />
+            <button
+              onClick={fetchPortalNonce}
+              disabled={proofState.state !== ProofState.Initial}
+              className="secondary-button"
+            >
+              Fetch Nonce
+            </button>
+          </div>
+
+          {portalNonce && (
+            <div className="nonce-display">
+              <p><strong>Venue:</strong> {portalNonce.venue_id}</p>
+              <p><strong>Event:</strong> {portalNonce.event_id}</p>
+              <p><strong>Nonce:</strong> {portalNonce.nonce.substring(0, 16)}...</p>
+            </div>
+          )}
+
+          <div className="input-group">
+            <label htmlFor="time-start">Time Window Start:</label>
+            <input
+              id="time-start"
+              type="datetime-local"
+              value={timeWindowStart}
+              onChange={(e) => setTimeWindowStart(e.target.value)}
               disabled={proofState.state !== ProofState.Initial}
             />
           </div>
+
           <div className="input-group">
-            <label htmlFor="input-y">Y:</label>
-            <input 
-              id="input-y"
-              type="text" 
-              value={inputY} 
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                setInputY(isNaN(value) ? 0 : value);
-              }} 
+            <label htmlFor="time-end">Time Window End:</label>
+            <input
+              id="time-end"
+              type="datetime-local"
+              value={timeWindowEnd}
+              onChange={(e) => setTimeWindowEnd(e.target.value)}
               disabled={proofState.state !== ProofState.Initial}
             />
+          </div>
+
+          <div className="input-group">
+            <label>User Secret (auto-generated):</label>
+            <p style={{ fontFamily: 'monospace', fontSize: '0.8em', wordBreak: 'break-all' }}>
+              {userSecret.substring(0, 32)}...
+            </p>
           </div>
         </div>
         
