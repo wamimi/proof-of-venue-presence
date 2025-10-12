@@ -33,6 +33,7 @@ h1 {
 
 .input-section {
   display: flex;
+  flex-direction: column;
   gap: 1.5rem;
   width: 100%;
   padding-bottom: 1.5rem;
@@ -173,6 +174,40 @@ button {
 
 .reset-button:hover {
   background-color: #303030;
+}
+
+.secondary-button {
+  background-color: #424242;
+  color: white;
+  margin-left: 0.5rem;
+}
+
+.secondary-button:hover {
+  background-color: #535353;
+}
+
+.secondary-button:disabled {
+  background-color: #333;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nonce-display {
+  padding: 1rem;
+  background-color: rgba(25, 118, 210, 0.1);
+  border: 1px solid #1976d2;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.nonce-display p {
+  margin: 0.5rem 0;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.nonce-display strong {
+  color: #1976d2;
 }
 
 .logo {

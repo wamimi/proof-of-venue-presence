@@ -4,10 +4,22 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Noir Proof Generator & Starknet Verifier</title>
+    <title>WiFiProof - Starknet Verifier</title>
+    <script>
+      // Inject Buffer polyfill IMMEDIATELY before any modules load
+      window.global = window;
+    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module">
+      // Load Buffer and inject it BEFORE main.tsx
+      import BufferModule from 'buffer';
+      window.Buffer = BufferModule.Buffer;
+      globalThis.Buffer = BufferModule.Buffer;
+
+      // Now load the app
+      import('/src/main.tsx');
+    </script>
   </body>
 </html>

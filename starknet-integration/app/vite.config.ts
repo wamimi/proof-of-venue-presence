@@ -11,10 +11,20 @@ export default defineConfig({
       ...serveStatic([
         {
           pattern: /main.worker.js/,
-          resolve: 'node_modules/@aztec/bb.js/dest/browser/main.worker.js'
+          resolve: 'node_modules/@aztec/bb.js/dest/browser/barretenberg_wasm/barretenberg_wasm_main/factory/browser/main.worker.js'
         }
       ]),
       apply: 'serve', // Only apply in dev mode
     }
   ],
+  define: {
+    'global': 'globalThis',
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis'
+      }
+    }
+  }
 })

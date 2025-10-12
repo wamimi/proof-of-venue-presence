@@ -5,8 +5,7 @@ import { Noir } from "@noir-lang/noir_js";
 import { UltraHonkBackend } from "@aztec/bb.js";
 import { flattenFieldsAsArray } from "./helpers/proof";
 import { getHonkCallData, init } from 'garaga';
-import { bytecode, abi } from "./assets/circuit.json";
-import { abi as verifierAbi } from "./assets/verifier.json";
+import verifierAbi from "./assets/verifier.json";
 import vkUrl from './assets/vk.bin?url';
 import { RpcProvider, Contract } from 'starknet';
 import initNoirC from "@noir-lang/noirc_abi";
@@ -40,7 +39,7 @@ interface CircuitInputs {
 const sha256Hash = async (input: string | Uint8Array): Promise<string> => {
   const encoder = new TextEncoder();
   const data = typeof input === 'string' ? encoder.encode(input) : input;
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data.buffer);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(hashBuffer))
     .map(b => b.toString(16).padStart(2, '0'))
     .join('');
@@ -184,7 +183,12 @@ function App() {
 
   const fetchPortalNonce = async () => {
     try {
-      const response = await fetch(`${portalEndpoint}/api/issue-nonce`);
+      const response = await fetch(`${portalEndpoint}/api/issue-nonce`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
       if (!response.ok) {
         throw new Error(`Portal returned ${response.status}: ${response.statusText}`);
       }
@@ -243,18 +247,27 @@ function App() {
 
       console.log('WiFiProof Circuit Inputs:', input);
 
+      // Load circuit dynamically to avoid Vite hanging
+      const circuitResponse = await fetch('/src/assets/circuit.json');
+      const circuit = await circuitResponse.json();
+
       // Generate witness
-      let noir = new Noir({ bytecode, abi: abi as any });
-      let execResult = await noir.execute(input);
+      const noir = new Noir(circuit);
+      const execResult = await noir.execute(input);
       console.log('Witness generated:', execResult);
-      
+
       // Generate proof
       updateState(ProofState.GeneratingProof);
+      console.log('Starting UltraHonk proof generation...');
 
-      let honk = new UltraHonkBackend(bytecode, { threads: 2 });
-      let proof = await honk.generateProof(execResult.witness, { starknet: true });
+      const honk = new UltraHonkBackend(circuit.bytecode);
+      console.log('UltraHonk backend initialized (single-threaded), generating proof...');
+
+      const proof = await honk.generateProof(execResult.witness, { starknet: true });
+      console.log('Proof generated successfully!');
+
       honk.destroy();
-      console.log(proof);
+      console.log('Proof data:', proof);
       
       // Prepare calldata
       updateState(ProofState.PreparingCalldata);
