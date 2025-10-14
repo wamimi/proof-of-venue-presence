@@ -3,3 +3,9 @@ url = "http://localhost:5050/rpc"
 accounts-file = "accounts.json"
 account = "devnet0"
 show-explorer-links = false
+
+[sncast.devnet]
+url = "http://localhost:5050/rpc"
+accounts-file = "accounts.json"
+account = "devnet0"
+show-explorer-links = false

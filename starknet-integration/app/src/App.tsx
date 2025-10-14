@@ -259,12 +259,16 @@ function App() {
       // Generate proof
       updateState(ProofState.GeneratingProof);
       console.log('Starting UltraHonk proof generation...');
+      console.log('Circuit bytecode length:', circuit.bytecode.length);
+      console.log('Witness length:', Object.keys(execResult.witness).length);
 
-      const honk = new UltraHonkBackend(circuit.bytecode);
-      console.log('UltraHonk backend initialized (single-threaded), generating proof...');
+      console.log('Initializing UltraHonkBackend with threads: 2...');
+      const honk = new UltraHonkBackend(circuit.bytecode, { threads: 2 });
+      console.log('UltraHonk backend initialized with 2 threads');
 
+      console.log('Calling generateProof with starknet: true option...');
       const proof = await honk.generateProof(execResult.witness, { starknet: true });
-      console.log('Proof generated successfully!');
+      console.log('Proof generated successfully!', proof);
 
       honk.destroy();
       console.log('Proof data:', proof);
@@ -288,8 +292,8 @@ function App() {
       updateState(ProofState.SendingTransaction);
 
       const provider = new RpcProvider({ nodeUrl: 'http://127.0.0.1:5050/rpc' });
-      // TODO: use conract address from the result of the `make deploy-verifier` step
-      const contractAddress = '0x02b76ac09aea8957666f0fb3409b091e2bdca99700273af44358bd2ed0e14a32';
+      // Deployed verifier contract address from devnet
+      const contractAddress = '0x058ac88555300d527ac9de972c254f880be16d8af08fbb818ba0c7102464cda6';
       const verifierContract = new Contract(verifierAbi, contractAddress, provider);
       
       // Check verification
