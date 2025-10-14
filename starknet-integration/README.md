@@ -2,7 +2,7 @@
 
 Zero-knowledge proof system for privacy-preserving venue attendance verification on Starknet.
 
-## 🎯 What is This?
+##  What is This?
 
 WiFiProof allows users to prove they attended a venue (connected to its WiFi captive portal) **without revealing**:
 - Which specific WiFi network they connected to
@@ -11,7 +11,7 @@ WiFiProof allows users to prove they attended a venue (connected to its WiFi cap
 
 The proof is verified on-chain on Starknet, providing cryptographic certainty of attendance while preserving privacy.
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────┐         ┌──────────────┐         ┌─────────────┐
@@ -21,7 +21,7 @@ The proof is verified on-chain on Starknet, providing cryptographic certainty of
 └─────────────┘         └──────────────┘         └─────────────┘
 ```
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 starknet-integration/
@@ -163,7 +163,7 @@ make deploy-verifier
 # Save the Contract Address from output
 ```
 
-### Step 6: Verify Proof On-Chain ⭐
+### Step 6: Verify Proof On-Chain 
 
 ```bash
 # Generate calldata from proof
@@ -184,7 +184,7 @@ Success: Call completed
 Response: [0x0, 0x7, 0x10932, ...]
 ```
 
-✅ **Success!** Your proof has been verified on-chain!
+ **Success!** Your proof has been verified on-chain!
 
 ### Step 7: Run Web Application
 
@@ -201,9 +201,9 @@ Navigate to http://localhost:5173
 **Working Features:**
 - ✅ Portal nonce fetching
 - ✅ Witness generation
-- 🚧 Proof generation (optimization in progress - use CLI for now)
+-  Proof generation (optimization in progress - use CLI for now)
 
-## 🔧 Makefile Commands
+##  Makefile Commands
 
 ### Circuit Commands
 - `make build-circuit` - Compile Noir circuit
@@ -236,7 +236,7 @@ Navigate to http://localhost:5173
 - `make install-garaga` - Install Garaga (needs Python venv)
 - `make install-app-deps` - Install app dependencies
 
-## 🧪 Testing
+##  Testing
 
 ### Test the Full Flow
 
@@ -266,7 +266,7 @@ The circuit in `circuit/src/main.nr` verifies:
 4. Portal signature hash is valid
 5. Proof timestamp is within valid time window
 
-## 📝 Configuration Files
+##  Configuration Files
 
 ### snfoundry.toml
 
@@ -287,7 +287,7 @@ Contains devnet account details. Generated automatically when devnet starts.
 
 Contains test inputs for the circuit. Used by `make exec-circuit`.
 
-## 🔐 Privacy Features
+##  Privacy Features
 
 **What's Private:**
 - User secret (never leaves user's device)
@@ -300,14 +300,14 @@ Contains test inputs for the circuit. Used by `make exec-circuit`.
 - Timestamp range
 - Proof that user has valid secret
 
-## 🎯 Use Cases
+##  Use Cases
 
 1. **Event Attendance**: Prove you attended a conference without revealing which sessions
 2. **Loyalty Programs**: Accumulate venue check-ins privately
 3. **Access Control**: Prove eligibility without revealing identity
 4. **Location-based Rewards**: Claim rewards for visiting venues while preserving privacy
 
-## 🛠️ Troubleshooting
+##  Troubleshooting
 
 ### Proof Generation Hangs in Browser
 
@@ -355,8 +355,8 @@ Should show: `Starknet Devnet listening on 127.0.0.1:5050`
 - ✅ Browser witness generation
 
 ### In Progress
-- 🚧 Browser-based proof generation optimization
-- 🚧 Wallet integration (Argent, Braavos)
+- Browser-based proof generation optimization
+-  Wallet integration (Argent, Braavos)
 
 ### Planned
 - [ ] Deploy to Starknet Sepolia testnet
@@ -366,7 +366,7 @@ Should show: `Starknet Devnet listening on 127.0.0.1:5050`
 - [ ] Mainnet deployment
 - [ ] Integration with real captive portal systems
 
-## 📚 Technical Stack
+##  Technical Stack
 
 - **ZK Circuit**: Noir 1.0.0-beta.5
 - **Proving System**: Barretenberg Ultra Honk (Starknet flavor)
@@ -375,29 +375,3 @@ Should show: `Starknet Devnet listening on 127.0.0.1:5050`
 - **Blockchain**: Starknet (devnet 0.4.3)
 - **Frontend**: React + TypeScript + Vite
 - **Deployment**: Starknet Foundry (sncast)
-
-## 🤝 Contributing
-
-This is a hackathon project for Starknet Foundation's Privacy & Identity track.
-
-## 📄 License
-
-MIT License - see LICENSE file for details
-
-## 🙏 Acknowledgments
-
-- Noir team for the ZK DSL
-- Aztec for Barretenberg proving system
-- Garaga team for Cairo verifier generation
-- Starknet Foundation for hackathon support
-- Base integration reference implementation
-
-## 📞 Support
-
-For demo purposes, see [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)
-
-For setup issues, check the Troubleshooting section above.
-
----
-
-Built with ❤️ for Starknet Hackathon - Privacy & Identity Track
