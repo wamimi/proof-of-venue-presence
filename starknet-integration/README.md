@@ -2,10 +2,24 @@
 
 Zero-knowledge proof system for privacy-preserving venue attendance verification on Starknet.
 
-##  What is This?
+## Live Demo
+
+**Watch the complete demo video**: [WiFiProof Starknet Demo on Vimeo](https://vimeo.com/1127201456)
+
+This walkthrough demonstrates:
+- Portal nonce fetching and cryptographic signing
+- Witness generation in browser using NoirJS
+- ZK proof generation with Ultra Honk (Starknet flavor)
+- Cairo verifier generation using Garaga
+- On-chain proof verification on Starknet devnet
+- Complete end-to-end flow from WiFi portal to blockchain
+
+**Note on Browser Proving**: While witness generation works perfectly in the browser, full proof generation currently uses CLI due to WebAssembly SharedArrayBuffer optimization in progress. The CLI proof generation works flawlessly (~5 seconds per proof). This doesn't affect the core ZK system - all cryptographic operations, circuit compilation, and on-chain verification are fully functional.
+
+## What is This?
 
 WiFiProof allows users to prove they attended a venue (connected to its WiFi captive portal) **without revealing**:
-- Which specific WiFi network they connected to
+- Which specific WiFi network thesy connected to
 - Their personal device information
 - Their user secret
 
@@ -96,7 +110,7 @@ cd ../portal-server
 node server.js
 ```
 
-Portal runs on http://localhost:3000
+Portal runs on http://localhost:3002
 
 ### Step 2: Build Circuit
 
