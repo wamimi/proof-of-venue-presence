@@ -1,197 +1,343 @@
-# noir_solidity_verifier_demo
+# WiFiProof Base Sepolia Integration
 
-This project demonstrates how to build a Noir circuit, generate a Solidity verifier, and deploy it with Foundry for on-chain proof verification.  
-The example circuit proves knowledge of a secret `x` that satisfies a public affine (linear) equation:
+This project demonstrates on-chain verification of WiFiProof Zero-Knowledge proofs on Base Sepolia testnet using Noir circuits, Solidity verifiers, and Foundry.
 
-$A \cdot x + B = C$
-
-without revealing `x`.
+The WiFiProof circuit cryptographically proves venue attendance through WiFi portal access while preserving user privacy.
 
 ---
 
-## 🎯 Objectives
+##  Objectives
 
-- Understand the role of `Verifier.sol` in verifying Noir proofs on-chain.  
-- Explore the Foundry project structure (`Verifier.sol`, `CyprianVerifierApp.sol`, etc.).  
-- Inspect the verifier contract name (e.g., `HonkVerifier`).  
-- Deploy the verifier contract locally (Anvil) or remotely.  
-- Verify a ZK proof both inside Foundry tests and on-chain calls.  
+- Deploy WiFiProof verifier contract on Base Sepolia
+- Verify Zero-Knowledge proofs of venue attendance on-chain
+- Understand the integration between Noir circuits and Solidity verification
+- Test proof verification both locally (Foundry) and on Base Sepolia
 
 ---
 
-## 📝 Circuit
+##  WiFiProof Circuit
 
-The Noir circuit is located in `circuits/src/main.nr`:
+The Noir circuit is located in `circuits/src/main.nr` and proves:
 
-```rust
-fn main(x: Field, A: pub Field, B: pub Field, C: pub Field) {
-    assert(A * x + B == C);
-}
-```
-- Public inputs: `A, B, C`
-- Private input: `x`
+**"A user with a secret was physically present at a venue during a specific time window, as verified by a portal-issued nonce"**
 
-Tests are included to check valid/invalid equations.
+### Circuit Inputs
 
-## 📁 Project Structure
+**Private (Hidden):**
+- `user_secret`: User's device secret (never revealed)
+- `connection_nonce`: Random nonce for this proof session
+
+**Public (Verifiable):**
+- `venue_id`: Unique venue identifier
+- `event_id`: Specific event identifier
+- `nonce_hash`: SHA256 hash of portal-issued nonce
+- `portal_sig_hash`: SHA256 hash of portal signature
+- `time_window_start`: Valid attendance window start (Unix timestamp)
+- `time_window_end`: Valid attendance window end (Unix timestamp)
+- `proof_timestamp`: When proof was generated (Unix timestamp)
+
+### What Gets Proven
+
+✅ User was at the venue during the time window
+✅ User possesses a valid device secret
+✅ Proof includes portal-issued nonce (prevents off-site generation)
+✅ Portal signature was verified (prevents forgery)
+✅ Proof cannot be reused (nullifier system)
+
+### What Stays Private
+
+User's identity and device secret
+Exact connection time
+Other venues visited
+Actual nonce and signature values
+
+---
+
+##  Project Structure
 
 ```bash
-zkp_linear_check/
+base-integration/noir_solidity_verifier_base_demo/
 │
-├── circuits/        # Noir circuit and build outputs
-│   ├── src/main.nr
-│   └── target/
+├── circuits/                    # Noir circuit
+│   ├── src/main.nr             # WiFiProof circuit implementation
+│   ├── Nargo.toml              # Circuit configuration
+│   ├── Prover.toml             # Test inputs
+│   └── build.sh                # Build script
 │
-├── js/              # bb.js proof generation
-│   └── generate-proof.ts
+├── js/                         # JavaScript proof generation
+│   └── generate-proof.ts       # bb.js integration
 │
-├── contract/        # Foundry project
-│   ├── Verifier.sol
-│   ├── CyprianVerifierApp.sol
-│   ├── script/Deploy.s.sol
-│   └── test/VerifyProof.t.sol
-
+├── contract/                   # Foundry project
+│   ├── Verifier.sol           # Auto-generated verifier
+│   ├── CyprianVerifierApp.sol # Wrapper contract with counter
+│   ├── script/Deploy.s.sol    # Deployment script
+│   └── test/VerifyProof.t.sol # Verification tests
+│
+├── cleanup.sh                  # Clean build artifacts
+└── README.md                   # This file
 ```
 
-## ⚙️ Building and Proof Generation
-1. Compile Noir circuit:
-   
-   ```bash
-   cd circuits
-   nargo compile
-   ```
-2. Write verification key:
-   
-   ```bash
-   bb write_vk --oracle_hash keccak \
+---
+
+##  Building the Circuit
+
+### Quick Build (Recommended)
+
+Use the automated build script that handles all steps:
+
+```bash
+cd circuits
+./build.sh
+```
+
+This script will:
+1. ✅ Compile the Noir circuit
+2. ✅ Generate verification key
+3. ✅ Generate Solidity verifier contract
+
+### Manual Build (Step-by-Step)
+
+If you prefer to run each step manually:
+
+**1. Compile Noir Circuit**
+
+```bash
+cd circuits
+nargo compile
+```
+
+This generates `target/noir_solidity_verifier_demo.json`
+
+**2. Generate Verification Key**
+
+```bash
+bb write_vk --oracle_hash keccak \
   -b ./target/noir_solidity_verifier_demo.json \
   -o ./target
-   ```
-3. Generate Solidity verifier:
- ```bash
- bb write_solidity_verifier \
+```
+
+**3. Generate Solidity Verifier**
+
+```bash
+bb write_solidity_verifier \
   -k ./target/vk \
   -o ../contract/Verifier.sol
- ```
-4. Generate proof and public inputs:
-   ```bash
-   nargo execute
-   bb prove \
-  -b ./target/noir_solidity_verifier_demo.json \
-  -w ./target/noir_solidity_verifier_demo.gz \
-  -o ./target \
-  --oracle_hash keccak
-   ```
-This produces:
- - `target/proof`
- - `target/public-inputs.json`
+```
 
-## 🔍 Inspecting the Verifier
-In the Foundry project:
+This creates the `HonkVerifier` contract used for on-chain verification.
+
+### Generating Proofs
+
+WiFiProof uses JavaScript/TypeScript with bb.js for proof generation:
+
+```bash
+cd js
+
+yarn install
+
+yarn generate-proof
+```
+
+
+The `generate-proof.ts` script:
+- ✅ Loads the compiled circuit
+- ✅ Executes the circuit with WiFiProof inputs (user_secret, venue_id, etc.)
+- ✅ Generates witness using NoirJS
+- ✅ Generates ZK proof with UltraHonk backend
+- ✅ Saves proof to `../circuits/target/proof`
+- ✅ Saves public inputs to `../circuits/target/public-inputs`
+
+
+
+This generates files used for Foundry testing and on-chain verification.
+
+---
+
+## Deployment on Base Sepolia
+
+### Prerequisites
+
+1. **Set up environment variables** in `contract/.env`:
+
+```bash
+# Base Sepolia RPC
+RPC_URL=https://sepolia.base.org
+
+# Your private key (DO NOT COMMIT!)
+PRIVATE_KEY=your_private_key_here
+
+# Basescan API key for contract verification (optional)
+ETHERSCAN_API_KEY=your_basescan_api_key
+```
+
+2. **Get Base Sepolia ETH** from faucet:
+   - https://portal.cdp.coinbase.com/products/faucet
+   If you do not have a Coinbase Developer Platfrom account, sign up using this link : https://app.fuul.xyz/landing/coinbase-cdp?referrer=0x4dc7f61e7B7Ea65729c6A135fa9178073CF50866
+
+### Deploy the Verifier
 
 ```bash
 cd contract
-grep -E "contract " Verifier.sol | head -n 5
+
+# Deploy HonkVerifier contract
+forge script script/Deploy.s.sol:DeployScript \
+  --rpc-url $RPC_URL \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --verify
 ```
 
-Take note of the verifier contract name (e.g., HonkVerifier).
-This is the contract you will deploy.
+**Deployed Contract Address (Base Sepolia):**
+```
+0x0828AD412378D82cC7e1566977Eb26e359F0C9fA
+```
 
-## 🚀 Deployment with Foundry
-Deployment Script (`script/Deploy.s.sol`)
+View on Basescan:
+https://sepolia.basescan.org/address/0x0828AD412378D82cC7e1566977Eb26e359F0C9fA
+
+---
+
+##  Contract Details
+
+### HonkVerifier.sol
+
+Auto-generated Solidity verifier that implements the UltraHonk proving system for Noir circuits.
+
+**Key Function:**
+```solidity
+function verify(bytes calldata proof, bytes32[] calldata publicInputs)
+    external view returns (bool)
+```
+
+### CyprianVerifierApp.sol
+
+Wrapper contract that tracks verified proofs:
 
 ```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+contract CyprianVerifierApp {
+    HonkVerifier public verifier;
+    uint256 public verifiedCount;
 
-import {Script, console} from "forge-std/Script.sol";
-import {HonkVerifier} from "../Verifier.sol";
+    event ProofVerified(address indexed by, uint256 newCount);
 
-contract DeployScript is Script {
-    function run() public {
-        vm.startBroadcast();
-        HonkVerifier verifier = new HonkVerifier();
-        console.log("Verifier deployed at:", address(verifier));
-        vm.stopBroadcast();
-    }
+    function verifyEqual(bytes calldata proof, bytes32[] calldata publicInputs)
+        public returns (bool)
 }
 ```
-### Run Local Node
+
+**Features:**
+- Validates proof has exactly 7 public inputs (WiFiProof format)
+- Increments `verifiedCount` on successful verification
+- Emits `ProofVerified` event for tracking
+
+---
+
+## ✅ Testing
+
+### Local Testing with Foundry
 
 ```bash
-anvil
+cd contract
+
+# Run all tests
+forge test -vvv
+
+# Run specific test
+forge test --match-test testVerifyProof -vvv
 ```
-### Deploy Contract
 
-```bash
-forge script script/Deploy.s.sol:DeployScript \
-  --rpc-url http://127.0.0.1:8545 \
-  --broadcast
-```
-
-## ✅ Verification On-Chain
-Once deployed, call the verifier with the generated proof + public inputs.
-
-Example Foundry Test (`test/VerifyProof.t.sol`)
+### Test Structure
 
 ```solidity
-// SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.17;
-
-import "forge-std/Test.sol";
-import "../Verifier.sol"; // HonkVerifier
-
 contract VerifyProofTest is Test {
     HonkVerifier public verifier;
-    bytes32 ;
-
-    function setUp() public {
-        verifier = new HonkVerifier();
-        publicInputs[0] = bytes32(uint256(3));
-        publicInputs[1] = bytes32(uint256(4));
-        publicInputs[2] = bytes32(uint256(5));
-        publicInputs[3] = bytes32(uint256(19));
-    }
+    bytes32[7] publicInputs;
 
     function testVerifyProof() public {
+        // Read proof from circuits/target/proof
         bytes memory proof = vm.readFileBinary("../circuits/target/proof");
+
+        // Verify the proof
         bool result = verifier.verify(proof, publicInputs);
-        assert(result);
+        assertTrue(result);
     }
 }
 ```
 
-Run with:
-```bash
-forge test -vvv
+---
+
+## 🔗 Integration with WiFiProof System
+
+This Base integration is designed to work with the full WiFiProof system:
+
+1. **Portal Server** (`../../portal/`) issues cryptographically signed nonces
+2. **Proof Client** (`../../proof-app/`) generates ZK proofs in the browser
+3. **Base Verifier** (this project) verifies proofs on-chain on Base Sepolia
+
+### End-to-End Flow
+
 ```
-## 📌 Troubleshooting
-- Contract too large (>24 KB):
+User connects to venue WiFi
+         ↓
+Portal issues signed nonce
+         ↓
+Browser generates ZK proof (NoirJS + Barretenberg)
+         ↓
+Proof submitted to Base Sepolia
+         ↓
+HonkVerifier validates on-chain ✅
+         ↓
+CyprianVerifierApp emits ProofVerified event
+```
+
+---
+
+## Troubleshooting
+
+### Contract Size Issues
+
+If you encounter "contract too large" errors:
+
 ```toml
 # foundry.toml
+[profile.default]
 optimizer = true
 optimizer_runs = 200
-# via_ir = true
+via_ir = true
 ```
-Then rebuild with:
 
+Then rebuild:
 ```bash
 forge clean && forge build --sizes
 ```
-- Sender/private key issues:
-  Use Anvil’s default accounts:
-  ```bash
-  source .env
-  forge script script/Deploy.s.sol:DeployScript \
-  --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast
-  ```
-  ## 🎓 Outcomes
-  By the end of this workflow you should be able to:
-  - Compile Noir circuits and generate Solidity verifiers.
-  - Deploy verifier contracts on Anvil/EVM with Foundry.
-  - Verify proofs using both unit tests (`forge test)` and direct on-chain calls.
-  - Understand how to connect Noir → proof generation → Solidity verification end-to-end.
 
-   
+### RPC Connection Issues
+
+Ensure your Base Sepolia RPC URL is correct:
+```bash
+# Test connection
+cast block latest --rpc-url $RPC_URL
+```
+
+### Verification Failures
+
+If contract verification fails on Basescan:
+```bash
+forge verify-contract \
+  <CONTRACT_ADDRESS> \
+  HonkVerifier \
+  --rpc-url $RPC_URL \
+  --etherscan-api-key $ETHERSCAN_API_KEY
+```
+
+
+## Resources
+
+- **Noir Documentation**: https://noir-lang.org/docs
+- **Base Documentation**: https://docs.base.org
+- **Foundry Book**: https://book.getfoundry.sh
+- **WiFiProof Main README**: ../../README.md
+- **Deployed Contract**: https://sepolia.basescan.org/address/0x0152036D5d42Ea20f88A32423Ee5C186E435bF51#code
+
+---
+

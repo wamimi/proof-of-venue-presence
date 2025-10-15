@@ -10,8 +10,8 @@ contract VerifyProofTest is Test {
 
     function setUp() public {
         // WiFiProof verifier deployed on Base Sepolia
-        // Address: https://sepolia.basescan.org/address/0x0152036D5d42Ea20f88A32423Ee5C186E435bF51
-        verifier = HonkVerifier(0x0152036D5d42Ea20f88A32423Ee5C186E435bF51);
+        // Address: https://sepolia.basescan.org/address/0x22810ca418cd716ca5bb76fc4730747ec12bf02a
+        verifier = HonkVerifier(0x22810Ca418Cd716CA5Bb76fC4730747eC12bF02A);
 
         // WiFiProof public inputs (matching actual circuit output from public-inputs file)
         publicInputs[0] = bytes32(uint256(67890));                                                      // venue_id

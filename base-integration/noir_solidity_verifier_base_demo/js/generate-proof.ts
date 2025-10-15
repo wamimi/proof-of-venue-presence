@@ -9,7 +9,7 @@ import { Noir } from "@noir-lang/noir_js";
     const noir = new Noir(circuit as any);
     const honk = new UltraHonkBackend(circuit.bytecode, { threads: 1 });
 
-    // WiFiProof circuit inputs - matching Prover.toml
+    // WiFiProof circuit inputs 
     const inputs = {
       // Private inputs
       user_secret: "0x1a2b3c4d5e6f708090abcdef1234567890abcdef1234567890abcdef12345678",
@@ -47,8 +47,8 @@ import { Noir } from "@noir-lang/noir_js";
     console.log("✅ Public inputs saved to ../circuits/target/public-inputs");
 
     console.log("\n🎉 WiFiProof generated successfully!");
-    console.log(`📊 Proof size: ${proof.length} bytes`);
-    console.log(`📊 Public inputs count: ${publicInputs.length}`);
+    console.log(` Proof size: ${proof.length} bytes`);
+    console.log(` Public inputs count: ${publicInputs.length}`);
 
     process.exit(0);
   } catch (error) {
